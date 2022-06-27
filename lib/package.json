@@ -1,0 +1,11 @@
+{
+  "name": "lib",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "tsc": "tsc"
+  },
+  "devDependencies": {
+    "typescript": "^4.7.4"
+  }
+}

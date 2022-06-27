@@ -1,0 +1,21 @@
+name = "fetcher"
+main = "src/index.ts"
+compatibility_date = "2022-06-21"
+account_id = "00000000000000000000000000000000"
+workers_dev = true
+
+[[r2_buckets]]
+binding = "R2_BUCKET"
+bucket_name = "example-bucket"
+preview_bucket_name = "example-bucket-test"
+
+[[kv_namespaces]]
+binding = "ASSETS_KV"
+id = "00000000000000000000000000000000"
+preview_id = "00000000000000000000000000000000"
+
+[vars]
+ALLOWED_CATEGORIES = "map,cat2,cat3"
+PUBSUB_TOPIC = "projects/{gcp-project-id}/topics/{pubsub-topic-name}"
+# required secrets:
+# SERVICE_ACCOUNT_KEY - service account json key
