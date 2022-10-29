@@ -1,6 +1,6 @@
 name = "fetcher"
 main = "src/index.ts"
-compatibility_date = "2022-06-21"
+compatibility_date = "2022-10-29"
 account_id = "00000000000000000000000000000000"
 workers_dev = true
 
