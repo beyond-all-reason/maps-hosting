@@ -51,7 +51,8 @@ async function handleFind(url: URL, env: Env, ctx: ExecutionContext): Promise<Re
             const msgId = await gcpPubSub.publish(
                 env.SERVICE_ACCOUNT_KEY,
                 env.PUBSUB_TOPIC,
-                JSON.stringify(message));
+                JSON.stringify(message),
+                {"requestType": "SyncRequest"});
             console.info(`Published message ${msgId} for '${springname}'`);
         })());
     }

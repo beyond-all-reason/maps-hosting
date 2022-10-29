@@ -1,12 +1,12 @@
 const SPRING_FILES_SEARCH = 'https://springfiles.springrts.com/json.php';
 
 export interface SpringFilesAsset {
-    name: string,
+    name?: string,
     filename: string,
     path: string,
     md5: string,
-    sdp: string,
-    version: string,
+    sdp?: string,
+    version?: string,
     category: string,
     size: number,
     timestamp: string,

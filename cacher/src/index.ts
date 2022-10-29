@@ -1,7 +1,18 @@
-import * as http from 'http';
+import * as child_process from 'node:child_process';
+import * as crypto from 'node:crypto';
+import * as fs from 'node:fs/promises';
+import * as http from 'node:http';
 import * as lib from '../../lib/index.js';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import * as stream from 'node:stream'
+import { pipeline } from 'node:stream/promises';
+import * as util from 'node:util';
 import { S3Client } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
+import { Storage as GCS } from "@google-cloud/storage";
+
+const execFile = util.promisify(child_process.execFile);
 
 class HTTPResponse {
     body: string
@@ -73,15 +84,27 @@ async function cfKVPut(key: string, value: string) {
     }
 }
 
-async function handlePubSub(buffer: Buffer): Promise<HTTPResponse> {
-    const msg: PubSubRequest = JSON.parse(buffer.toString('utf8'));
-    if (!msg.message.data) {
-        throw lib.httpBadRequest('message doesn\'t have data property');
-    }
-    const dataBuf = Buffer.from(msg.message.data, 'base64');
-    const req: lib.SyncRequest = JSON.parse(dataBuf.toString('utf8'));
+async function saveToCDN(asset: lib.SpringFilesAsset, file: ReadableStream<Uint8Array>) {
+    // Let's filter down properties only to the ones we need.
+    const baseAsset: lib.SpringFilesAsset = {
+            filename: asset.filename,
+            springname: asset.springname,
+            md5: asset.md5,
+            category: asset.category,
+            path: asset.path,
+            tags: [],
+            size: asset.size,
+            timestamp: asset.timestamp,
+            mirrors: [`file/${asset.md5}/${asset.filename}`],
+    };
+    await uploadToR2(asset.md5, file);
+    await cfKVPut(lib.getKVKey(asset.category, asset.springname), JSON.stringify(baseAsset));
+    console.log(`Upload of ${asset.springname} done`);
+    console.log(JSON.stringify(baseAsset));
+}
 
-    console.info(`Handling message ${msg.message.messageId}, fetching ${req.category}/${req.springname}`);
+async function handleSyncRequest(req: lib.SyncRequest) {
+    console.info(`fetching ${req.category}/${req.springname}`);
     const asset = await lib.fetchFromSpringFiles(req.category, req.springname);
 
     // Upload file to R2
@@ -90,15 +113,100 @@ async function handlePubSub(buffer: Buffer): Promise<HTTPResponse> {
         if (!response.ok) {
             throw lib.httpBadGateway(`Fetch from springfiles failed with ${response.status}`);
         }
-        await uploadToR2(asset.md5, response.body!);
+        await saveToCDN(asset, response.body!);
     } finally {
         await response.body?.cancel();
     }
+}
 
-    // Put file metadata to KV
-    asset.mirrors = [`file/${asset.md5}/${asset.filename}`];
-    await cfKVPut(lib.getKVKey(req.category, req.springname), JSON.stringify(asset));
+// https://cloud.google.com/storage/docs/json_api/v1/objects#resource-representations
+// Minimal set of properties we need
+interface GCSObjectResource {
+    bucket: string,
+    name: string,
+}
 
+async function fileMd5(path: string): Promise<string> {
+    let handle: fs.FileHandle | undefined;
+    try {
+        handle = await fs.open(path);
+        const readS = handle.createReadStream();
+        const md5 = crypto.createHash('md5');
+        await pipeline([readS, md5]);
+        return md5.digest('hex').toLowerCase();
+    } finally {
+        await handle?.close();
+    }
+}
+
+// Based on implementation in upq.
+function getNormalizedFileName(springname: string, mapPath: string): string {
+    const ext = path.extname(mapPath);
+    const name = springname.toLowerCase().replaceAll(/[^abcdefghijklmnopqrstuvwxyz_.01234567890-]/g, "_");
+    return `${name}${ext}`.substring(0, 255);
+}
+
+async function getSpringName(mapPath: string): Promise<string> {
+    const { stdout } = await execFile(process.env.PYSMF_PATH!, [mapPath], {timeout: 60*1000});
+    return JSON.parse(stdout)['springname'];
+}
+
+async function handleUploadRequest(obj: GCSObjectResource) {
+    console.log(`Event: ${obj.name} got uploaded to ${obj.bucket} bucket`);
+    const storage = new GCS();
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'map-'));
+    const mapPath = path.join(tmpDir, obj.name);
+    let handle: fs.FileHandle | undefined
+    try {
+        await storage.bucket(obj.bucket).file(obj.name).download({destination: mapPath}); 
+        const springname = await getSpringName(mapPath);
+        const asset: lib.SpringFilesAsset = {
+            springname,
+            category: "map",
+            path: "maps",
+            tags: [],
+            filename: getNormalizedFileName(springname, mapPath),
+            md5: await fileMd5(mapPath),
+            size: (await fs.stat(mapPath)).size,
+            timestamp: new Date().toISOString().replace('Z', ''),
+            mirrors: [],
+        };
+        handle = await fs.open(mapPath);
+        const readStream = stream.Readable.toWeb(handle.createReadStream());
+        await saveToCDN(asset, readStream);
+    } finally {
+        await handle?.close();
+        await fs.rm(tmpDir, {recursive: true});
+    }
+}
+
+async function handlePubSub(buffer: Buffer, url: URL): Promise<HTTPResponse> {
+    const msg: PubSubRequest = JSON.parse(buffer.toString('utf8'));
+    if (!msg.message.data) {
+        throw lib.httpBadRequest('message doesn\'t have data property');
+    }
+    const dataBuf = Buffer.from(msg.message.data, 'base64');
+    const parsedData = JSON.parse(dataBuf.toString('utf8'));
+
+    switch (url.pathname) {
+        case "/cache":
+            await handleSyncRequest(parsedData);
+            if (!msg.message.attributes ||
+                msg.message.attributes["requestType"] != "SyncRequest") {
+                throw lib.httpBadRequest("expected requestType=SyncRequest attribute");
+            }
+            break;
+        case "/upload":
+            if (!msg.message.attributes ||
+                msg.message.attributes["eventType"] != "OBJECT_FINALIZE" ||
+                msg.message.attributes["payloadFormat"] != "JSON_API_V1") {
+                throw lib.httpBadRequest("expected OBJECT_FINALIZE with JSON_API_V1 payload");
+            }
+            await handleUploadRequest(parsedData);
+            break;
+        default:
+            throw lib.httpNotFound("not defined handling for requested endpoint");
+    }
     return new HTTPResponse("ok", 200);
 }
 
@@ -109,8 +217,9 @@ function handler(req: http.IncomingMessage, res: http.ServerResponse) {
         if (!req.complete) {
             console.error('The connection was terminated before getting all data');
         } else {
+            const url = new URL(req.url!, `http://${req.headers.host}`);
             const data = Buffer.concat(chunks);
-            handlePubSub(data).then(response => {
+            handlePubSub(data, url).then(response => {
                 response.writeResponse(res);
             }).catch(e => {
                 if (!(e instanceof lib.HTTPError)) {
@@ -133,7 +242,8 @@ function main() {
                        'CF_R2_ACCESS_KEY_ID',
                        'CF_R2_ACCESS_KEY_SECRET',
                        'CF_KV_NAMESPACE_ID',
-                       'CF_KV_API_TOKEN']) {
+                       'CF_KV_API_TOKEN',
+                       'PYSMF_PATH']) {
         if (!process.env[env]) {
             throw new Error(`Required environment variable ${env} not set`);
         }

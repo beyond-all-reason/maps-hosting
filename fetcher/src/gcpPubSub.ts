@@ -44,8 +44,8 @@ interface PubSubResult {
     messageIds: Array<string>;
 }
 
-export async function publish(service_account_key: string, topic: string, msg: string): Promise<string> {
-    const message = JSON.stringify({messages: [{data: btoa(msg)}]});
+export async function publish(service_account_key: string, topic: string, msg: string, attributes: {[key: string]: string}): Promise<string> {
+    const message = JSON.stringify({messages: [{data: btoa(msg), attributes}]});
     const token = await getAuthToken(service_account_key);
     const response = await fetch(`https://pubsub.googleapis.com/v1/${topic}:publish`, {
         method: 'POST',
