@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "target": "es2020",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "types": [
+      "@types/node"
+    ],
+
+    /* Emit */
+    "outDir": "bin",
+    "sourceMap": true,
+    "pretty": true,
+
+    /* Features */
+    "experimentalDecorators": true,
+
+    /* Interop Constraints */
+    "isolatedModules": true,
+    "forceConsistentCasingInFileNames": true,
+
+    /* Type Checking */
+    "strict": true,
+    "noImplicitAny": true,
+    "noImplicitThis": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+  },
+  "files": [
+    "index.ts"
+  ]
+}

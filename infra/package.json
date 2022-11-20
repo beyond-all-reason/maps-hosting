@@ -1,0 +1,13 @@
+{
+  "name": "springfiles-mirror-infra",
+  "main": "index.ts",
+  "devDependencies": {
+    "@types/node": "^18.11.7"
+  },
+  "dependencies": {
+    "@pulumi/cloudflare": "^4.12.1",
+    "@pulumi/docker": "^3.6.1",
+    "@pulumi/gcp": "^6.43.0",
+    "@pulumi/pulumi": "^3.47.1"
+  }
+}

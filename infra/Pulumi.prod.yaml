@@ -1,0 +1,2 @@
+config:
+  gcp:project: bar-springfiles-syncer

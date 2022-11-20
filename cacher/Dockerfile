@@ -12,7 +12,8 @@ RUN npm ci --omit=dev
 
 FROM docker.io/debian:bookworm AS pysml
 WORKDIR /app
-RUN apt-get update && apt-get install -y git
+RUN apt-get update && apt-get install --no-install-recommends -yq \
+    ca-certificates git 
 RUN git clone --depth 1 https://github.com/p2004a/pysmf.git
 
 FROM docker.io/debian:bookworm-slim
