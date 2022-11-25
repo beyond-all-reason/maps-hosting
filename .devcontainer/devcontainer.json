@@ -1,0 +1,11 @@
+{
+    "name": "springfiles-mirror-devcontainer",
+    "image": "mcr.microsoft.com/devcontainers/base:bullseye",
+    "features": {
+        "ghcr.io/devcontainers/features/common-utils:1": {},
+        "ghcr.io/devcontainers/features/docker-in-docker:1": {},
+        "ghcr.io/devcontainers/features/node:1": {},
+        "ghcr.io/devcontainers-contrib/features/pulumi:1": {},
+        "ghcr.io/dhoeric/features/google-cloud-cli:1": {}
+    }
+}
