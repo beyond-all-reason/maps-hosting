@@ -6,7 +6,7 @@ RUN npm run tsc
 
 FROM docker.io/library/node:18 AS install-env
 WORKDIR /app
-COPY --from=compile-env /cacher/package* .
+COPY --from=compile-env /cacher/package* ./
 COPY --from=compile-env /cacher/dist .
 RUN npm ci --omit=dev
 

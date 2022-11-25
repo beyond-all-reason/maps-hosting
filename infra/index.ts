@@ -28,6 +28,12 @@ const fetcherAssetsKv = new cloudflare.WorkersKvNamespace("fetcher-assets-kv", {
     title: `fetcher-${pulumi.getStack()}:assets`,
 });
 
+if (pulumi.getStack() == "dev") {
+    new cloudflare.WorkersKvNamespace("fetcher-assets-kv-preview", {
+        title: `fetcher-${pulumi.getStack()}:assets_preview`,
+    });
+}
+
 const cfPermissionGroups = pulumi.output(cloudflare.getApiTokenPermissionGroups()).permissions;
 
 const fetcherAssetsKvApiToken = new cloudflare.ApiToken("fetcher-assets-kv-api-token", {
@@ -72,6 +78,18 @@ const fetcherAssetsBucket = new aws.s3.Bucket("fetcher-assets-bucket", {
 });
 */
 
+const gcpServiceSecretManager = new gcp.projects.Service("gcp-service-secretmanager", {
+    service: "secretmanager.googleapis.com",
+});
+
+const gcpServiceArtifactRegistry = new gcp.projects.Service("gcp-service-artifactregistry", {
+    service: "artifactregistry.googleapis.com",
+});
+
+const gcpServiceRun = new gcp.projects.Service("gcp-service-run", {
+    service: "run.googleapis.com",
+});
+
 const cacher = new gcp.serviceaccount.Account("cacher", {
     accountId: "cacher",
     displayName: "cacher",
@@ -99,7 +117,7 @@ const uploadBucket = new gcp.storage.Bucket("upload-bucket", {
         },
     }],
     location: region,
-    name: "springfiles-upload-8734",
+    name: pulumi.interpolate `${gcp.organizations.getProjectOutput().projectId}_assets-upload`,
     publicAccessPrevention: "enforced",
     uniformBucketLevelAccess: true,
 });
@@ -127,7 +145,7 @@ const mainImagesRepo = new gcp.artifactregistry.Repository("main-images-repo", {
     format: "docker",
     location: region,
     repositoryId: "main",
-});
+}, {dependsOn: [gcpServiceArtifactRegistry]});
 
 const mainRepoRegistryAddress = pulumi.interpolate `${mainImagesRepo.location}-docker.pkg.dev`;
 
@@ -155,7 +173,7 @@ const cfKvApiTokenSecret = new gcp.secretmanager.Secret("cloudflare-kv-api-token
         },
     },
     secretId: "cloudflare-kv-api-token",
-});
+}, {dependsOn: [gcpServiceSecretManager]});
 
 const cacherCfKvApiTokenSecretAccess = new gcp.secretmanager.SecretIamMember("cloudflare-kv-api-token-secret-cacher-access", {
     secretId: cfKvApiTokenSecret.secretId,
@@ -177,10 +195,10 @@ const cfR2AccessKeySecret = new gcp.secretmanager.Secret("cloudflare-r2-access-k
         },
     },
     secretId: "cloudflare-r2-access-key-secret",
-});
+}, {dependsOn: [gcpServiceSecretManager]});
 
 const cacherR2AccessKeyAccess = new gcp.secretmanager.SecretIamMember("cloudflare-r2-access-key-secret-cacher-access", {
-    secretId: cfKvApiTokenSecret.secretId,
+    secretId: cfR2AccessKeySecret.secretId,
     role: "roles/secretmanager.secretAccessor",
     member: pulumi.interpolate `serviceAccount:${cacher.email}`,
 });
@@ -253,7 +271,7 @@ const cacherService = new gcp.cloudrun.Service("cacher-service", {
         latestRevision: true,
         percent: 100,
     }],
-}, {dependsOn: [cacherCfKvApiTokenSecretAccess, cacherR2AccessKeyAccess]});
+}, {dependsOn: [cacherCfKvApiTokenSecretAccess, cacherR2AccessKeyAccess, gcpServiceRun]});
 
 const cacherServiceInvoker = new gcp.cloudrun.IamMember("cacher-service-invoker-access", {
     location: region,
@@ -337,14 +355,15 @@ const uploadBucketNotification = new gcp.storage.Notification("upload-bucket-not
     eventTypes: ["OBJECT_FINALIZE"],
     payloadFormat: "JSON_API_V1",
     topic: uploadRequests.id,
-}, {dependsOn: [uploadRequestsPolicy]});
+}, {dependsOn: [uploadRequestsPolicy, uploadBucket]});
 
 const fetcherWorkerKey = new gcp.serviceaccount.Key("mykey", {
     serviceAccountId: fetcherWorker.name,
 });
 
 const fetcherScriptContent = gcp.storage.getBucketObjectContentOutput({
-    bucket: workerScriptsBucket.name,
+    // This apply is purely to not fetch file before bucket exists.
+    bucket: workerScriptsBucket.id.apply(_ => workerScriptsBucket.name),
     name: "fetcher.js",
 });
 
