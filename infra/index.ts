@@ -75,18 +75,18 @@ const fetcherAssetsBucket = new aws.s3.Bucket("fetcher-assets-bucket", {
 const cacher = new gcp.serviceaccount.Account("cacher", {
     accountId: "cacher",
     displayName: "cacher",
-}, {protect: true});
+});
 
 const cacherInvoker = new gcp.serviceaccount.Account("cacher-invoker", {
     accountId: "cacher-invoker",
     displayName: "cacher-invoker",
-}, {protect: true});
+});
 
 const fetcherWorker = new gcp.serviceaccount.Account("fetcher-worker", {
     accountId: "fetcher-worker",
     description: "CloudFlare fetcher worker script",
     displayName: "Fetcher Worker",
-}, {protect: true});
+});
 
 const uploadBucket = new gcp.storage.Bucket("upload-bucket", {
     lifecycleRules: [{
@@ -102,14 +102,7 @@ const uploadBucket = new gcp.storage.Bucket("upload-bucket", {
     name: "springfiles-upload-8734",
     publicAccessPrevention: "enforced",
     uniformBucketLevelAccess: true,
-}, {protect: true});
-
-const workerScriptsBucket = new gcp.storage.Bucket("worker-scripts-bucket", {
-    location: region,
-    name: pulumi.interpolate `${gcp.organizations.getProjectOutput().projectId}_worker-scripts`,
-    publicAccessPrevention: "enforced",
-    uniformBucketLevelAccess: true,
-}, {protect: true});
+});
 
 const uploadBucketContributorsAccess = new gcp.storage.BucketIAMMember("upload-bucket-contributors-access", {
     bucket: uploadBucket.id,
@@ -123,11 +116,18 @@ const uploadBucketCacherAccess = new gcp.storage.BucketIAMMember("upload-bucket-
     member: pulumi.interpolate `serviceAccount:${cacher.email}`,
 });
 
+const workerScriptsBucket = new gcp.storage.Bucket("worker-scripts-bucket", {
+    location: region,
+    name: pulumi.interpolate `${gcp.organizations.getProjectOutput().projectId}_worker-scripts`,
+    publicAccessPrevention: "enforced",
+    uniformBucketLevelAccess: true,
+});
+
 const mainImagesRepo = new gcp.artifactregistry.Repository("main-images-repo", {
     format: "docker",
     location: region,
     repositoryId: "main",
-}, {protect: true});
+});
 
 const mainRepoRegistryAddress = pulumi.interpolate `${mainImagesRepo.location}-docker.pkg.dev`;
 
@@ -155,7 +155,7 @@ const cfKvApiTokenSecret = new gcp.secretmanager.Secret("cloudflare-kv-api-token
         },
     },
     secretId: "cloudflare-kv-api-token",
-}, {protect: true});
+});
 
 const cacherCfKvApiTokenSecretAccess = new gcp.secretmanager.SecretIamMember("cloudflare-kv-api-token-secret-cacher-access", {
     secretId: cfKvApiTokenSecret.secretId,
@@ -177,7 +177,7 @@ const cfR2AccessKeySecret = new gcp.secretmanager.Secret("cloudflare-r2-access-k
         },
     },
     secretId: "cloudflare-r2-access-key-secret",
-}, {protect: true});
+});
 
 const cacherR2AccessKeyAccess = new gcp.secretmanager.SecretIamMember("cloudflare-r2-access-key-secret-cacher-access", {
     secretId: cfKvApiTokenSecret.secretId,
@@ -204,42 +204,35 @@ const cacherService = new gcp.cloudrun.Service("cacher-service", {
         spec: {
             containerConcurrency: 2,
             containers: [{
-                envs: [
-                    {
-                        name: "CF_ACCOUNT_ID",
-                        value: cloudflareConfig.require("accountId"),
-                    },
-                    {
-                        name: "CF_KV_API_TOKEN",
-                        valueFrom: {
-                            secretKeyRef: {
-                                key: cfKvApiTokenSecretVersion.version,
-                                name: cfKvApiTokenSecret.secretId,
-                            },
+                envs: [{
+                    name: "CF_ACCOUNT_ID",
+                    value: cloudflareConfig.require("accountId"),
+                }, {
+                    name: "CF_KV_API_TOKEN",
+                    valueFrom: {
+                        secretKeyRef: {
+                            key: cfKvApiTokenSecretVersion.version,
+                            name: cfKvApiTokenSecret.secretId,
                         },
                     },
-                    {
-                        name: "CF_KV_NAMESPACE_ID",
-                        value: fetcherAssetsKv.id,
-                    },
-                    {
-                        name: "CF_R2_ACCESS_KEY_ID",
-                        value: config.require("cfR2AccessKeyId"),
-                    },
-                    {
-                        name: "CF_R2_ACCESS_KEY_SECRET",
-                        valueFrom: {
-                            secretKeyRef: {
-                                key: cfR2AccessKeySecretVersion.version,
-                                name: cfR2AccessKeySecret.secretId,
-                            },
+                },{
+                    name: "CF_KV_NAMESPACE_ID",
+                    value: fetcherAssetsKv.id,
+                },{
+                    name: "CF_R2_ACCESS_KEY_ID",
+                    value: config.require("cfR2AccessKeyId"),
+                },{
+                    name: "CF_R2_ACCESS_KEY_SECRET",
+                    valueFrom: {
+                        secretKeyRef: {
+                            key: cfR2AccessKeySecretVersion.version,
+                            name: cfR2AccessKeySecret.secretId,
                         },
                     },
-                    {
-                        name: "CF_R2_BUCKET",
-                        value: fetcherAssetsBucketName,
-                    },
-                ],
+                },{
+                    name: "CF_R2_BUCKET",
+                    value: fetcherAssetsBucketName,
+                }],
                 image: pulumi.interpolate `${cacherRegistryImage.name}@${cacherRegistryImage.sha256Digest}`,
                 ports: [{
                     containerPort: 8080,
@@ -260,10 +253,7 @@ const cacherService = new gcp.cloudrun.Service("cacher-service", {
         latestRevision: true,
         percent: 100,
     }],
-}, {
-    protect: false,
-    dependsOn: [cacherCfKvApiTokenSecretAccess, cacherR2AccessKeyAccess],
-});
+}, {dependsOn: [cacherCfKvApiTokenSecretAccess, cacherR2AccessKeyAccess]});
 
 const cacherServiceInvoker = new gcp.cloudrun.IamMember("cacher-service-invoker-access", {
     location: region,
@@ -274,7 +264,7 @@ const cacherServiceInvoker = new gcp.cloudrun.IamMember("cacher-service-invoker-
 
 const cacheRequests = new gcp.pubsub.Topic("cache-requests", {
     name: "cache-requests",
-}, {protect: true});
+});
 
 const cacheRequestsPolicy = new gcp.pubsub.TopicIAMPolicy("cache-requests-policy", {
     policyData: gcp.organizations.getIAMPolicyOutput({
@@ -284,7 +274,7 @@ const cacheRequestsPolicy = new gcp.pubsub.TopicIAMPolicy("cache-requests-policy
         }]
     }).apply(p => p.policyData),
     topic: cacheRequests.id
-}, {protect: true});
+});
 
 const cacherSub = new gcp.pubsub.Subscription("cacher-sub", {
     ackDeadlineSeconds: 600,
@@ -304,11 +294,11 @@ const cacherSub = new gcp.pubsub.Subscription("cacher-sub", {
         minimumBackoff: "10s",
     },
     topic: cacheRequests.id,
-}, {protect: true});
+});
 
 const uploadRequests = new gcp.pubsub.Topic("upload-requests", {
     name: "upload-requests",
-}, {protect: true});
+});
 
 const gcsAccount = gcp.storage.getProjectServiceAccountOutput({});
 
@@ -320,7 +310,7 @@ const uploadRequestsPolicy = new gcp.pubsub.TopicIAMPolicy("upload-requests-poli
         }]
     }).apply(p => p.policyData),
     topic: uploadRequests.id,
-}, {protect: true});
+});
 
 const uploadRequestsSub = new gcp.pubsub.Subscription("upload-requests-sub", {
     ackDeadlineSeconds: 600,
@@ -340,17 +330,14 @@ const uploadRequestsSub = new gcp.pubsub.Subscription("upload-requests-sub", {
         minimumBackoff: "10s",
     },
     topic: uploadRequests.id,
-}, {protect: true});
+});
 
 const uploadBucketNotification = new gcp.storage.Notification("upload-bucket-notification", {
     bucket: uploadBucket.name,
     eventTypes: ["OBJECT_FINALIZE"],
     payloadFormat: "JSON_API_V1",
     topic: uploadRequests.id,
-}, {
-    protect: true,
-    dependsOn: [uploadRequestsPolicy],
-});
+}, {dependsOn: [uploadRequestsPolicy]});
 
 const fetcherWorkerKey = new gcp.serviceaccount.Key("mykey", {
     serviceAccountId: fetcherWorker.name,
