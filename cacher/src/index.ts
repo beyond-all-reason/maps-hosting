@@ -36,7 +36,7 @@ interface PubSubRequest {
 }
 
 interface PubSubMessage {
-    attributes?: {[key: string]: string},
+    attributes?: { [key: string]: string },
     data?: string,
     messageId: string,
     publishTime: string,
@@ -71,7 +71,7 @@ async function cfKVPut(key: string, value: string) {
         + `/${process.env.CF_KV_NAMESPACE_ID!}/values/${encodeURIComponent(key)}`;
     const response = await fetch(url, {
         method: 'PUT',
-        headers: {'Authorization': `Bearer ${process.env.CF_KV_API_TOKEN!}`},
+        headers: { 'Authorization': `Bearer ${process.env.CF_KV_API_TOKEN!}` },
         body: value,
     });
     try {
@@ -87,15 +87,15 @@ async function cfKVPut(key: string, value: string) {
 async function saveToCDN(asset: lib.SpringFilesAsset, file: ReadableStream<Uint8Array>) {
     // Let's filter down properties only to the ones we need.
     const baseAsset: lib.SpringFilesAsset = {
-            filename: asset.filename,
-            springname: asset.springname,
-            md5: asset.md5,
-            category: asset.category,
-            path: asset.path,
-            tags: [],
-            size: asset.size,
-            timestamp: asset.timestamp,
-            mirrors: [`file/${asset.md5}/${asset.filename}`],
+        filename: asset.filename,
+        springname: asset.springname,
+        md5: asset.md5,
+        category: asset.category,
+        path: asset.path,
+        tags: [],
+        size: asset.size,
+        timestamp: asset.timestamp,
+        mirrors: [`file/${asset.md5}/${asset.filename}`],
     };
     await uploadToR2(asset.md5, file);
     await cfKVPut(lib.getKVKey(asset.category, asset.springname), JSON.stringify(baseAsset));
@@ -147,7 +147,7 @@ function getNormalizedFileName(springname: string, mapPath: string): string {
 }
 
 async function getSpringName(mapPath: string): Promise<string> {
-    const { stdout } = await execFile(process.env.PYSMF_PATH!, [mapPath], {timeout: 60*1000});
+    const { stdout } = await execFile(process.env.PYSMF_PATH!, [mapPath], { timeout: 60 * 1000 });
     return JSON.parse(stdout)['springname'];
 }
 
@@ -158,7 +158,7 @@ async function handleUploadRequest(obj: GCSObjectResource) {
     const mapPath = path.join(tmpDir, obj.name);
     let handle: fs.FileHandle | undefined
     try {
-        await storage.bucket(obj.bucket).file(obj.name).download({destination: mapPath}); 
+        await storage.bucket(obj.bucket).file(obj.name).download({ destination: mapPath });
         const springname = await getSpringName(mapPath);
         const asset: lib.SpringFilesAsset = {
             springname,
@@ -172,11 +172,11 @@ async function handleUploadRequest(obj: GCSObjectResource) {
             mirrors: [],
         };
         handle = await fs.open(mapPath);
-        const readStream = stream.Readable.toWeb(handle.createReadStream());
+        const readStream = stream.Readable.toWeb(handle.createReadStream()) as ReadableStream<Uint8Array>
         await saveToCDN(asset, readStream);
     } finally {
         await handle?.close();
-        await fs.rm(tmpDir, {recursive: true});
+        await fs.rm(tmpDir, { recursive: true });
     }
 }
 
@@ -237,13 +237,15 @@ function handler(req: http.IncomingMessage, res: http.ServerResponse) {
 }
 
 function main() {
-    for (const env of ['CF_ACCOUNT_ID',
-                       'CF_R2_BUCKET',
-                       'CF_R2_ACCESS_KEY_ID',
-                       'CF_R2_ACCESS_KEY_SECRET',
-                       'CF_KV_NAMESPACE_ID',
-                       'CF_KV_API_TOKEN',
-                       'PYSMF_PATH']) {
+    for (const env of [
+        'CF_ACCOUNT_ID',
+        'CF_R2_BUCKET',
+        'CF_R2_ACCESS_KEY_ID',
+        'CF_R2_ACCESS_KEY_SECRET',
+        'CF_KV_NAMESPACE_ID',
+        'CF_KV_API_TOKEN',
+        'PYSMF_PATH'
+    ]) {
         if (!process.env[env]) {
             throw new Error(`Required environment variable ${env} not set`);
         }

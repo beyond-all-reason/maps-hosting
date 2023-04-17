@@ -1,3 +1,3 @@
 name = "fetcher"
 main = "src/index.ts"
-compatibility_date = "2022-10-29"
+compatibility_date = "2023-04-10"
