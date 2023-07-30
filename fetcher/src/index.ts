@@ -7,6 +7,7 @@ export interface Env {
     PUBSUB_TOPIC: string;
     SERVICE_ACCOUNT_KEY: string;
     ALLOWED_CATEGORIES: string;
+    DEV_MODE: string | undefined;
 }
 
 async function handleFind(url: URL, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -77,6 +78,29 @@ async function handleFile(url: URL, env: Env): Promise<Response> {
 
 export default {
     async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+        const url = new URL(request.url);
+
+        // Until wrangler 3 provides a better way to set and delete object programatically
+        // we need to use this hack to allow for testing.
+        if (env.DEV_MODE === 'true') {
+            if (url.pathname === '/put_object') {
+                const file = url.searchParams.get('name');
+                if (request.body === null || file === null) {
+                    return new Response('Bad Request', {status: 400});
+                }
+                await env.R2_BUCKET.put(file, request.body);
+                return new Response('OK', {status: 200});
+            }
+            if (url.pathname === '/put_kv') {
+                const key = url.searchParams.get('key');
+                if (request.body === null || key === null) {
+                    return new Response('Bad Request', {status: 400});
+                }
+                await env.ASSETS_KV.put(key, request.body);
+                return new Response('OK', {status: 200});
+            }
+        }
+
         if (request.method != 'GET') {
             return new Response('Method Not Allowed', {
                 status: 405,
@@ -84,7 +108,6 @@ export default {
             });
         }
         try {
-            const url = new URL(request.url);
             if (url.pathname === '/find') {
                 return await handleFind(url, env, ctx);
             } else if (url.pathname.startsWith('/file/')) {

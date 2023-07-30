@@ -2,7 +2,6 @@ import * as cloudflare from "@pulumi/cloudflare";
 import * as docker from "@pulumi/docker";
 import * as gcp from "@pulumi/gcp";
 import * as pulumi from "@pulumi/pulumi";
-import * as aws from "@pulumi/aws"
 import * as random from "@pulumi/random";
 
 const config = new pulumi.Config();
@@ -22,15 +21,15 @@ Zone
   DNS
 */
 
-const cloudflareConfig = new pulumi.Config("cloudflare");
-
 const fetcherAssetsKv = new cloudflare.WorkersKvNamespace("fetcher-assets-kv", {
     title: `fetcher-${pulumi.getStack()}:assets`,
+    accountId: config.require("cloudflareAccountId"),
 });
 
 if (pulumi.getStack() == "dev") {
     new cloudflare.WorkersKvNamespace("fetcher-assets-kv-preview", {
         title: `fetcher-${pulumi.getStack()}:assets_preview`,
+        accountId: config.require("cloudflareAccountId"),
     });
 }
 
@@ -40,19 +39,7 @@ const fetcherAssetsKvApiToken = new cloudflare.ApiToken("fetcher-assets-kv-api-t
     name: `cacher-${pulumi.getStack()} access`,
     policies: [{
         permissionGroups: [cfPermissionGroups.apply(p => p['Workers KV Storage Write'])],
-        resources: {[`com.cloudflare.api.account.${cloudflareConfig.require("accountId")}`]: "*"}
-    }]
-});
-
-const cfS3Provider = new aws.Provider("cf-s3-provider", {
-    accessKey: config.require("cfR2AccessKeyId"),
-    secretKey: config.require("cfR2AccessKeySecret"),
-    region: <aws.Region>"auto",
-    skipCredentialsValidation: true,
-    skipRegionValidation: true,
-    skipRequestingAccountId: true,
-    endpoints: [{
-        s3: `https://${cloudflareConfig.require('accountId')}.r2.cloudflarestorage.com`
+        resources: {[`com.cloudflare.api.account.${config.require("cloudflareAccountId")}`]: "*"}
     }]
 });
 
@@ -61,22 +48,10 @@ const fetcherAssetsBucketSuffix = new random.RandomInteger("fetcher-assets-bucke
     min: 100,
 });
 
-const fetcherAssetsBucketName = pulumi.interpolate `fetcher-${pulumi.getStack()}-assets-${fetcherAssetsBucketSuffix.result}`;
-
-/*
-It succesfully creates, but fails to succeed completly, because of
-https://github.com/hashicorp/terraform-provider-aws/issues/23291
-
-Alternatively wait for https://github.com/cloudflare/terraform-provider-cloudflare/issues/1664
-to be also able to automatically create S3 access keys and so on.
-
-const fetcherAssetsBucket = new aws.s3.Bucket("fetcher-assets-bucket", {
-    bucket: fetcherAssetsBucketName,
-}, {
-    provider: cfS3Provider,
-    retainOnDelete: true
+const fetcherAssetsBucket = new cloudflare.R2Bucket("fetcher-assets-bucket", {
+    accountId: config.require("cloudflareAccountId"),
+    name: pulumi.interpolate `fetcher-${pulumi.getStack()}-assets-${fetcherAssetsBucketSuffix.result}`,
 });
-*/
 
 const gcpServiceSecretManager = new gcp.projects.Service("gcp-service-secretmanager", {
     service: "secretmanager.googleapis.com",
@@ -218,13 +193,16 @@ const cacherService = new gcp.cloudrun.Service("cacher-service", {
                 "autoscaling.knative.dev/maxScale": "100",
                 "run.googleapis.com/execution-environment": "gen2",
             },
+            labels: {
+                "run.googleapis.com/startupProbeType": "Default",
+            },
         },
         spec: {
             containerConcurrency: 2,
             containers: [{
                 envs: [{
                     name: "CF_ACCOUNT_ID",
-                    value: cloudflareConfig.require("accountId"),
+                    value: config.require("cloudflareAccountId"),
                 }, {
                     name: "CF_KV_API_TOKEN",
                     valueFrom: {
@@ -249,7 +227,7 @@ const cacherService = new gcp.cloudrun.Service("cacher-service", {
                     },
                 },{
                     name: "CF_R2_BUCKET",
-                    value: fetcherAssetsBucketName,
+                    value: fetcherAssetsBucket.name,
                 }],
                 image: pulumi.interpolate `${cacherRegistryImage.name}@${cacherRegistryImage.sha256Digest}`,
                 ports: [{
@@ -368,6 +346,7 @@ const fetcherScriptContent = gcp.storage.getBucketObjectContentOutput({
 });
 
 const fetcherWorkerScript = new cloudflare.WorkerScript("fetcher", {
+    accountId: config.require("cloudflareAccountId"),
     name: `fetcher-${pulumi.getStack()}`,
     content: <pulumi.Output<string>>fetcherScriptContent.content,
     module: true,
@@ -388,12 +367,19 @@ const fetcherWorkerScript = new cloudflare.WorkerScript("fetcher", {
     }],
     r2BucketBindings: [{
         name: "R2_BUCKET",
-        bucketName: fetcherAssetsBucketName,
+        bucketName: fetcherAssetsBucket.name,
     }],
 });
 
-/*
-Assigning custom domain to worked needs to be done manually becasuse
-cloudflare provider doesn't offer it yet:
-https://github.com/cloudflare/terraform-provider-cloudflare/issues/1921
-*/
+const fetcherZone = new cloudflare.Zone("fetcher-zone", {
+    accountId: config.require("cloudflareAccountId"),
+    zone: "beyondallreason.dev",
+    plan: "free",
+});
+
+const fetcherWorkerDomain = new cloudflare.WorkerDomain("fetcher-domain", {
+    accountId: config.require("cloudflareAccountId"),
+    hostname: pulumi.interpolate `files-cdn${pulumi.getStack() === "prod" ? "" : "-" + pulumi.getStack()}.${fetcherZone.zone}`,
+    zoneId: fetcherZone.id,
+    service: fetcherWorkerScript.name,
+});

@@ -8,11 +8,12 @@
     "publish": "wrangler publish"
   },
   "dependencies": {
-    "jose": "^4.14.0"
+    "jose": "^4.14.4"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20230404.0",
-    "typescript": "^5.0.4",
-    "wrangler": "^2.14.0"
+    "@cloudflare/workers-types": "^4.20230724.0",
+    "miniflare": "^3.20230724.0",
+    "typescript": "^5.1.6",
+    "wrangler": "^3.4.0"
   }
 }

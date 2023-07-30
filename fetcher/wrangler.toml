@@ -1,3 +1,13 @@
 name = "fetcher"
 main = "src/index.ts"
-compatibility_date = "2023-04-10"
+compatibility_date = "2023-07-24"
+
+[[r2_buckets]]
+binding = "R2_BUCKET"
+bucket_name = "<ignored>"
+preview_bucket_name = "objects"
+
+[[kv_namespaces]]
+binding = "ASSETS_KV"
+id = "<ignored>"
+preview_id = "assets"

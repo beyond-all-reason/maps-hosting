@@ -1,5 +1,4 @@
 config:
-  cloudflare:accountId: 5e015123d861c65819b733acb27db18e
   cloudflare:apiToken:
     secure: AAABAOuyInhMITlh2QzkhJYR0KawcWc/hIpjXjyYiRLSr1CAj2ze6cDxKnQhLLV32/ZlxhUmNRUHHhvNkKxXk18wL87BgvOY
   gcp:project: bar-springfiles-syncer
@@ -7,3 +6,4 @@ config:
   springfiles-mirror:cfR2AccessKeySecret:
     secure: AAABAMrq4aeLKcyFuo9uPGOUPb+nMzozfnAjndXNJM/zlOtap57YYRA5L56pWMCrPOwAcIM4hlov+NpGGO1TJPghG7xIp2D0n3ql1JJqKovcu/56Gm435N+vICJhwSCf
   springfiles-mirror:region: europe-west1
+  springfiles-mirror:cloudflareAccountId: 5e015123d861c65819b733acb27db18e
