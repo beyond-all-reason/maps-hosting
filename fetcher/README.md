@@ -5,6 +5,8 @@ Publishing to GCS bucket
 ========================
 
 ```
-./node_modules/wrangler/bin/wrangler.js deploy --dry-run --outdir dist
-gcloud storage cp dist/index.js gs://bar-springfiles-syncer_worker-scripts/fetcher.js
+npm run build
+gcloud storage cp dist/index.js gs://bar-springfiles-dev_assets-upload/fetcher.js
+cd ../infra
+pulumi up -s dev
 ```

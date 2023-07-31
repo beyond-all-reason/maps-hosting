@@ -116,6 +116,10 @@ const workerScriptsBucket = new gcp.storage.Bucket("worker-scripts-bucket", {
     uniformBucketLevelAccess: true,
 });
 
+const workerScriptBucketFile = "fetcher.js";
+
+export const workerScriptUploadTarget = pulumi.interpolate `${workerScriptsBucket.url}/${workerScriptBucketFile}`; 
+
 const mainImagesRepo = new gcp.artifactregistry.Repository("main-images-repo", {
     format: "docker",
     location: region,
@@ -138,6 +142,8 @@ const dockerProvider = new docker.Provider("docker", {
 const cacherRegistryImage = docker.getRegistryImageOutput({
     name: pulumi.interpolate `${mainRepoRegistryAddress}/${mainImagesRepo.project}/${mainImagesRepo.repositoryId}/cacher:latest`,
 }, {provider: dockerProvider});
+
+export const cacherImageName = cacherRegistryImage.name;
 
 const cfKvApiTokenSecret = new gcp.secretmanager.Secret("cloudflare-kv-api-token-secret", {
     replication: {
@@ -342,7 +348,7 @@ const fetcherWorkerKey = new gcp.serviceaccount.Key("mykey", {
 const fetcherScriptContent = gcp.storage.getBucketObjectContentOutput({
     // This apply is purely to not fetch file before bucket exists.
     bucket: workerScriptsBucket.id.apply(_ => workerScriptsBucket.name),
-    name: "fetcher.js",
+    name: workerScriptBucketFile,
 });
 
 const fetcherWorkerScript = new cloudflare.WorkerScript("fetcher", {
