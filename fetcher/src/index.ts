@@ -61,20 +61,29 @@ async function handleFind(url: URL, env: Env, ctx: ExecutionContext): Promise<Re
     return new Response(JSON.stringify([asset]), {status: 200});
 }
 
-async function handleFile(url: URL, env: Env): Promise<Response> {
+async function handleFile(url: URL, env: Env, ctx: ExecutionContext): Promise<Response> {
     const parts = url.pathname.split('/');
     // request must look like /file/{md5hash}/{filename}
     if (parts.length != 4) {
         throw lib.httpBadRequest('Incorrect request for file');
     }
-    const object = await env.R2_BUCKET.get(parts[2]);
-    if (!object || !object.body) {
-        return new Response('Object Not Found', {status: 404});
+
+    const cache = caches.default;
+    const cacheKey = new Request(new URL(`/file/${parts[2]}`, url.origin));
+    let response = await cache.match(cacheKey);
+    if (!response) {
+        const object = await env.R2_BUCKET.get(parts[2]);
+        if (!object || !object.body) {
+            return new Response('Object Not Found', {status: 404});
+        }
+        const headers = new Headers();
+        object.writeHttpMetadata(headers);
+        headers.set('etag', object.httpEtag);
+        headers.set('cache-control', 'public, max-age=31536000, immutable');
+        response = new Response(object.body, {headers});
+        ctx.waitUntil(cache.put(cacheKey, response.clone()));
     }
-    const headers = new Headers();
-    object.writeHttpMetadata(headers);
-    headers.set('etag', object.httpEtag);
-    return new Response(object.body, {headers});
+    return response;
 }
 
 export default {
@@ -112,7 +121,7 @@ export default {
             if (url.pathname === '/find') {
                 return await handleFind(url, env, ctx);
             } else if (url.pathname.startsWith('/file/')) {
-                return await handleFile(url, env);
+                return await handleFile(url, env, ctx);
             } else {
                 throw lib.httpNotFound();
             }
