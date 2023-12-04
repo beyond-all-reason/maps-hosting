@@ -36,7 +36,7 @@ Publishing
 To update already configured Cloud Run cacher instance:
 
 ```
-podman build --format=docker .. -f Dockerfile -t europe-west1-docker.pkg.dev/$PROJECT_NAME/main/cacher
-podman push europe-west1-docker.pkg.dev/$PROJECT_NAME/main/cacher
-gcloud --project=$PROJECT_NAME run deploy cacher --region=europe-west1 --image europe-west1-docker.pkg.dev/$PROJECT_NAME/main/cacher:latest
+podman build --format=docker .. -f Dockerfile -t europe-west1-docker.pkg.dev/$PROJECT_ID/main/cacher
+podman push europe-west1-docker.pkg.dev/$PROJECT_ID/main/cacher
+gcloud --project=$PROJECT_ID run deploy cacher --region=europe-west1 --image europe-west1-docker.pkg.dev/$PROJECT_ID/main/cacher:latest
 ```
