@@ -65,23 +65,41 @@ async function uploadToR2(filename: string, body: ReadableStream<Uint8Array>) {
     await upload.done();
 }
 
-async function cfKVPut(key: string, value: string) {
+async function cfKVCall(method: string, key: string, value?: string): Promise<Response> {
     const url = `https://api.cloudflare.com/client/v4/accounts`
         + `/${process.env.CF_ACCOUNT_ID!}/storage/kv/namespaces`
         + `/${process.env.CF_KV_NAMESPACE_ID!}/values/${encodeURIComponent(key)}`;
     const response = await fetch(url, {
-        method: 'PUT',
+        method,
         headers: { 'Authorization': `Bearer ${process.env.CF_KV_API_TOKEN!}` },
         body: value,
     });
+    return response;
+}
+
+async function cfKVPut(key: string, value: string) {
+    const response = await cfKVCall('PUT', key, value);
     try {
         if (!response.ok) {
             console.error(await response.json());
-            throw lib.httpInternalServerError("Cloudflare set key failed");
+            throw lib.httpInternalServerError(`Cloudflare key put failed`);
         }
     } finally {
         await response.body?.cancel();
     }
+}
+
+async function cfKVGet(key: string): Promise<string | null> {
+    const resp = await cfKVCall('GET', key);
+    if (resp.status == 404) {
+        await resp.body?.cancel();
+        return null;
+    } else if (!resp.ok) {
+        console.error(await resp.json());
+        await resp.body?.cancel();
+        throw lib.httpInternalServerError(`Cloudflare key GET failed`);
+    }
+    return await resp.text();
 }
 
 async function saveToCDN(asset: lib.SpringFilesAsset, file: ReadableStream<Uint8Array>) {
@@ -97,8 +115,16 @@ async function saveToCDN(asset: lib.SpringFilesAsset, file: ReadableStream<Uint8
         timestamp: asset.timestamp,
         mirrors: [`file/${asset.md5}/${asset.filename}`],
     };
+    const key = lib.getKVKey(asset.category, asset.springname);
+
+    // Check if we already have this file in R2
+    if (await cfKVGet(key) != null) {
+        console.log(`Already have ${asset.springname} in KV, skipping`);
+        return;
+    }
+
     await uploadToR2(asset.md5, file);
-    await cfKVPut(lib.getKVKey(asset.category, asset.springname), JSON.stringify(baseAsset));
+    await cfKVPut(key, JSON.stringify(baseAsset));
     console.log(`Upload of ${asset.springname} done`);
     console.log(JSON.stringify(baseAsset));
 }
