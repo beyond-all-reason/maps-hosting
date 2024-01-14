@@ -38,5 +38,14 @@ To update already configured Cloud Run cacher instance:
 ```
 podman build --format=docker .. -f Dockerfile -t europe-west1-docker.pkg.dev/$PROJECT_ID/main/cacher
 podman push europe-west1-docker.pkg.dev/$PROJECT_ID/main/cacher
+cd ../infra
+pulumi up -s {dev|prod}
+```
+
+You can also use
+
+```
 gcloud --project=$PROJECT_ID run deploy cacher --region=europe-west1 --image europe-west1-docker.pkg.dev/$PROJECT_ID/main/cacher:latest
 ```
+
+but it will cause some diffs for pulumi.
