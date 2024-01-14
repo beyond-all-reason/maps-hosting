@@ -1,6 +1,6 @@
 name = "fetcher"
 main = "src/index.ts"
-compatibility_date = "2023-07-24"
+compatibility_date = "2024-01-14"
 
 [[r2_buckets]]
 binding = "R2_BUCKET"
