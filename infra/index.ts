@@ -48,11 +48,6 @@ const fetcherAssetsBucketSuffix = new random.RandomInteger("fetcher-assets-bucke
     min: 100,
 });
 
-const fetcherAssetsBucket = new cloudflare.R2Bucket("fetcher-assets-bucket", {
-    accountId: config.require("cloudflareAccountId"),
-    name: pulumi.interpolate `fetcher-${pulumi.getStack()}-assets-${fetcherAssetsBucketSuffix.result}`,
-});
-
 // Create regional R2 buckets for each region we want to serve from.
 // https://developers.cloudflare.com/r2/reference/data-location/
 const fetcherAssetsBuckets = ['weur', 'wnam', 'apac']
@@ -243,9 +238,7 @@ const cacherService = new gcp.cloudrun.Service("cacher-service", {
                 },{
                     name: "CF_R2_BUCKETS",
                     value: pulumi
-                        .all(fetcherAssetsBuckets
-                            .map(bucket => bucket.name)
-                            .concat([fetcherAssetsBucket.name]))
+                        .all(fetcherAssetsBuckets.map(bucket => bucket.name))
                         .apply(names => names.join(",")),
                 }],
                 image: pulumi.interpolate `${cacherRegistryImage.name}@${cacherRegistryImage.sha256Digest}`,
