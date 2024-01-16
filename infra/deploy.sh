@@ -29,7 +29,7 @@ if [[ $ENV == "dev" ]]; then
     log "Build and push cacher..."
     CACHE_IMAGE_NAME="$(pulumi stack -s dev output cacherImageName)"
     pushd ../cacher
-    podman build --format=docker -t "$CACHE_IMAGE_NAME" .. -f Dockerfile
+    podman build --pull=always --format=docker -t "$CACHE_IMAGE_NAME" .. -f Dockerfile
     podman push "$CACHE_IMAGE_NAME"
     popd
 
