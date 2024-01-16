@@ -384,10 +384,10 @@ const fetcherWorkerScript = new cloudflare.WorkerScript("fetcher", {
         name: "SERVICE_ACCOUNT_KEY",
         text: fetcherWorkerKey.privateKey.apply(atob),
     }],
-    r2BucketBindings: [{
-        name: "R2_BUCKET",
-        bucketName: fetcherAssetsBucket.name,
-    }],
+    r2BucketBindings: fetcherAssetsBuckets.map(bucket => ({
+        name: bucket.location.apply(region => `R2_BUCKET_${region.toUpperCase()}`),
+        bucketName: bucket.name,
+    })),
 });
 
 const fetcherZone = new cloudflare.Zone("fetcher-zone", {
