@@ -232,7 +232,7 @@ const cacherService = new gcp.cloudrun.Service("cacher-service", {
                         },
                     },
                 },{
-                    name: "CF_R2_BUCKET",
+                    name: "CF_R2_BUCKETS",
                     value: fetcherAssetsBucket.name,
                 }],
                 image: pulumi.interpolate `${cacherRegistryImage.name}@${cacherRegistryImage.sha256Digest}`,
