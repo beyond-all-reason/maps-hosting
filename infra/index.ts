@@ -53,6 +53,15 @@ const fetcherAssetsBucket = new cloudflare.R2Bucket("fetcher-assets-bucket", {
     name: pulumi.interpolate `fetcher-${pulumi.getStack()}-assets-${fetcherAssetsBucketSuffix.result}`,
 });
 
+// Create regional R2 buckets for each region we want to serve from.
+// https://developers.cloudflare.com/r2/reference/data-location/
+const fetcherAssetsBuckets = ['weur', 'wnam', 'apac']
+    .map(region => new cloudflare.R2Bucket(`fetcher-assets-bucket-${region}`, {
+        accountId: config.require("cloudflareAccountId"),
+        name: pulumi.interpolate `fetcher-${pulumi.getStack()}-assets-${region}-${fetcherAssetsBucketSuffix.result}`,
+        location: region.toUpperCase(),
+    }));
+
 const gcpServiceSecretManager = new gcp.projects.Service("gcp-service-secretmanager", {
     service: "secretmanager.googleapis.com",
 });
@@ -233,7 +242,11 @@ const cacherService = new gcp.cloudrun.Service("cacher-service", {
                     },
                 },{
                     name: "CF_R2_BUCKETS",
-                    value: fetcherAssetsBucket.name,
+                    value: pulumi
+                        .all(fetcherAssetsBuckets
+                            .map(bucket => bucket.name)
+                            .concat([fetcherAssetsBucket.name]))
+                        .apply(names => names.join(",")),
                 }],
                 image: pulumi.interpolate `${cacherRegistryImage.name}@${cacherRegistryImage.sha256Digest}`,
                 ports: [{
