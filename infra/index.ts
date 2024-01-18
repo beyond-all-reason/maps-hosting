@@ -48,10 +48,14 @@ const fetcherAssetsBucketSuffix = new random.RandomInteger("fetcher-assets-bucke
     min: 100,
 });
 
-const fetcherAssetsBucket = new cloudflare.R2Bucket("fetcher-assets-bucket", {
-    accountId: config.require("cloudflareAccountId"),
-    name: pulumi.interpolate `fetcher-${pulumi.getStack()}-assets-${fetcherAssetsBucketSuffix.result}`,
-});
+// Create regional R2 buckets for each region we want to serve from.
+// https://developers.cloudflare.com/r2/reference/data-location/
+const fetcherAssetsBuckets = ['weur', 'wnam', 'apac']
+    .map(region => new cloudflare.R2Bucket(`fetcher-assets-bucket-${region}`, {
+        accountId: config.require("cloudflareAccountId"),
+        name: pulumi.interpolate `fetcher-${pulumi.getStack()}-assets-${region}-${fetcherAssetsBucketSuffix.result}`,
+        location: region.toUpperCase(),
+    }));
 
 const gcpServiceSecretManager = new gcp.projects.Service("gcp-service-secretmanager", {
     service: "secretmanager.googleapis.com",
@@ -232,8 +236,10 @@ const cacherService = new gcp.cloudrun.Service("cacher-service", {
                         },
                     },
                 },{
-                    name: "CF_R2_BUCKET",
-                    value: fetcherAssetsBucket.name,
+                    name: "CF_R2_BUCKETS",
+                    value: pulumi
+                        .all(fetcherAssetsBuckets.map(bucket => bucket.name))
+                        .apply(names => names.join(",")),
                 }],
                 image: pulumi.interpolate `${cacherRegistryImage.name}@${cacherRegistryImage.sha256Digest}`,
                 ports: [{
@@ -371,10 +377,10 @@ const fetcherWorkerScript = new cloudflare.WorkerScript("fetcher", {
         name: "SERVICE_ACCOUNT_KEY",
         text: fetcherWorkerKey.privateKey.apply(atob),
     }],
-    r2BucketBindings: [{
-        name: "R2_BUCKET",
-        bucketName: fetcherAssetsBucket.name,
-    }],
+    r2BucketBindings: fetcherAssetsBuckets.map(bucket => ({
+        name: bucket.location.apply(region => `R2_BUCKET_${region.toUpperCase()}`),
+        bucketName: bucket.name,
+    })),
 });
 
 const fetcherZone = new cloudflare.Zone("fetcher-zone", {

@@ -1,13 +1,13 @@
 FROM docker.io/library/node:18 AS compile-env
-COPY . .
-WORKDIR cacher
+COPY . /src
+WORKDIR /src/cacher
 RUN npm ci
 RUN npm run tsc
 
 FROM docker.io/library/node:18 AS install-env
 WORKDIR /app
-COPY --from=compile-env /cacher/package* ./
-COPY --from=compile-env /cacher/dist .
+COPY --from=compile-env /src/cacher/package* ./
+COPY --from=compile-env /src/cacher/dist .
 RUN npm ci --omit=dev
 
 FROM docker.io/debian:bookworm AS pysml

@@ -8,6 +8,7 @@
     "build": "wrangler deploy --dry-run --outdir dist"
   },
   "dependencies": {
+    "geolib": "^3.3.4",
     "jose": "^5.2.0"
   },
   "devDependencies": {

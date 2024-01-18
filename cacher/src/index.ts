@@ -10,6 +10,7 @@ import { pipeline } from 'node:stream/promises';
 import * as util from 'node:util';
 import { S3Client } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
+import { AbortController as AWSAbortController } from "@smithy/abort-controller";
 import { Storage as GCS } from "@google-cloud/storage";
 
 const execFile = util.promisify(child_process.execFile);
@@ -42,7 +43,12 @@ interface PubSubMessage {
     publishTime: string,
 }
 
-async function uploadToR2(filename: string, body: ReadableStream<Uint8Array>) {
+async function uploadToR2(opts: {
+    bucket: string,
+    filename: string,
+    srcPath: string,
+    abortController: AWSAbortController,
+}) {
     const client = new S3Client({
         region: "auto",
         endpoint: `https://${process.env.CF_ACCOUNT_ID!}.r2.cloudflarestorage.com`,
@@ -51,18 +57,26 @@ async function uploadToR2(filename: string, body: ReadableStream<Uint8Array>) {
             secretAccessKey: process.env.CF_R2_ACCESS_KEY_SECRET!,
         }
     });
-    // Would be nice if we had some e2e integrity checks here, but i've not
-    // figured out how to do it well currectly with this API when it's a
-    // multi part upload.
-    const upload = new Upload({
-        client,
-        params: {
-            Bucket: process.env.CF_R2_BUCKET!,
-            Key: filename,
-            Body: body
-        }
-    });
-    await upload.done();
+    const handle = await fs.open(opts.srcPath);
+    try {
+        const readStream = stream.Readable.toWeb(handle.createReadStream()) as ReadableStream<Uint8Array>;
+
+        // Would be nice if we had some e2e integrity checks here, but i've not
+        // figured out how to do it well currectly with this API when it's a
+        // multi part upload.
+        const upload = new Upload({
+            client,
+            params: {
+                Bucket: opts.bucket,
+                Key: opts.filename,
+                Body: readStream
+            },
+            abortController: opts.abortController,
+        });
+        await upload.done();
+    } finally {
+        await handle.close();
+    }
 }
 
 async function cfKVCall(method: string, key: string, value?: string): Promise<Response> {
@@ -102,7 +116,7 @@ async function cfKVGet(key: string): Promise<string | null> {
     return await resp.text();
 }
 
-async function saveToCDN(asset: lib.SpringFilesAsset, file: ReadableStream<Uint8Array>) {
+async function saveToCDN(asset: lib.SpringFilesAsset, path: string) {
     // Let's filter down properties only to the ones we need.
     const baseAsset: lib.SpringFilesAsset = {
         filename: asset.filename,
@@ -123,7 +137,20 @@ async function saveToCDN(asset: lib.SpringFilesAsset, file: ReadableStream<Uint8
         return;
     }
 
-    await uploadToR2(asset.md5, file);
+    const abortController = new AWSAbortController();
+    try {
+        await Promise.all(process.env.CF_R2_BUCKETS!
+            .split(',')
+            .map(bucket => uploadToR2({
+                bucket,
+                filename: asset.md5,
+                srcPath: path,
+                abortController,
+            })));
+    } catch (e) {
+        abortController.abort();
+        throw e;
+    }
     await cfKVPut(key, JSON.stringify(baseAsset));
     console.log(`Upload of ${asset.springname} done`);
     console.log(JSON.stringify(baseAsset));
@@ -139,7 +166,20 @@ async function handleSyncRequest(req: lib.SyncRequest) {
         if (!response.ok) {
             throw lib.httpBadGateway(`Fetch from springfiles failed with ${response.status}`);
         }
-        await saveToCDN(asset, response.body!);
+        const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'map-'));
+        try {
+            const mapPath = path.join(tmpDir, 'map.sd7');
+            const handle = await fs.open(mapPath, 'w');
+            try {
+                const writeStream = stream.Writable.toWeb(handle.createWriteStream()) as WritableStream<Uint8Array>;
+                await response.body!.pipeTo(writeStream);
+            } finally {
+                await handle.close();
+            }
+            await saveToCDN(asset, mapPath);
+        } finally {
+            await fs.rm(tmpDir, { recursive: true });
+        }
     } finally {
         await response.body?.cancel();
     }
@@ -182,7 +222,6 @@ async function handleUploadRequest(obj: GCSObjectResource) {
     const storage = new GCS();
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'map-'));
     const mapPath = path.join(tmpDir, obj.name);
-    let handle: fs.FileHandle | undefined
     try {
         await storage.bucket(obj.bucket).file(obj.name).download({ destination: mapPath });
         const springname = await getSpringName(mapPath);
@@ -197,11 +236,8 @@ async function handleUploadRequest(obj: GCSObjectResource) {
             timestamp: new Date().toISOString().replace('Z', ''),
             mirrors: [],
         };
-        handle = await fs.open(mapPath);
-        const readStream = stream.Readable.toWeb(handle.createReadStream()) as ReadableStream<Uint8Array>
-        await saveToCDN(asset, readStream);
+        await saveToCDN(asset, mapPath);
     } finally {
-        await handle?.close();
         await fs.rm(tmpDir, { recursive: true });
     }
 }
@@ -265,7 +301,7 @@ function handler(req: http.IncomingMessage, res: http.ServerResponse) {
 function main() {
     for (const env of [
         'CF_ACCOUNT_ID',
-        'CF_R2_BUCKET',
+        'CF_R2_BUCKETS',
         'CF_R2_ACCESS_KEY_ID',
         'CF_R2_ACCESS_KEY_SECRET',
         'CF_KV_NAMESPACE_ID',

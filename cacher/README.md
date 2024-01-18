@@ -36,7 +36,7 @@ Publishing
 To update already configured Cloud Run cacher instance:
 
 ```
-podman build --format=docker .. -f Dockerfile -t europe-west1-docker.pkg.dev/$PROJECT_ID/main/cacher
+podman build --pull=always --format=docker .. -f Dockerfile -t europe-west1-docker.pkg.dev/$PROJECT_ID/main/cacher
 podman push europe-west1-docker.pkg.dev/$PROJECT_ID/main/cacher
 cd ../infra
 pulumi up -s {dev|prod}
