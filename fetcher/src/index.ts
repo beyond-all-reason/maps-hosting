@@ -98,8 +98,13 @@ async function handleFind(url: URL, env: Env, ctx: ExecutionContext): Promise<Re
         throw lib.httpBadRequest('springname too long');
     }
 
-    const value = await env.ASSETS_KV.get(
-        lib.getKVKey(category, springname), { cacheTtl: 8 * 60 * 60 });
+    const key = lib.getKVKey(category, springname);
+    let value = await env.ASSETS_KV.get(key, { cacheTtl: 8 * 60 * 60 });
+    // If value is not found, try with shorter cacheTtl as not found keys are also cached.
+    if (value === null) {
+        value = await env.ASSETS_KV.get(key, { cacheTtl: 60 });
+    }
+
     let asset: lib.SpringFilesAsset;
     if (value !== null) {
         asset = JSON.parse(value);

@@ -21,7 +21,7 @@ hurl --test tests.hurl
 
 ```
 npm run build
-gcloud storage cp dist/index.js gs://bar-springfiles-dev_assets-upload/fetcher.js
+gcloud storage cp dist/index.js gs://bar-springfiles-dev_worker-scripts/fetcher.js
 cd ../infra
 pulumi up -s dev
 ```
