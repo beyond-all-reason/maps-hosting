@@ -104,6 +104,10 @@ async function handleFind(url: URL, env: Env, ctx: ExecutionContext): Promise<Re
     }
 
     let asset: lib.SpringFilesAsset;
+    const headers = new Headers({
+        'content-type': 'application/json; charset=utf-8',
+        'cache-control': 'public, max-age=1800, stale-while-revalidate=1800, stale-if-error=86400'
+    });
     if (value !== null) {
         asset = JSON.parse(value);
         asset.mirrors = asset.mirrors.map(p => p.startsWith('http') ? p : `${url.origin}/${p}`);
@@ -122,9 +126,9 @@ async function handleFind(url: URL, env: Env, ctx: ExecutionContext): Promise<Re
             console.info(`Published message ${msgId} for '${springname}'`);
         })());
     } else {
-        return new Response(JSON.stringify([]), { status: 200 });
+        return new Response(JSON.stringify([]), { status: 200, headers });
     }
-    return new Response(JSON.stringify([asset]), { status: 200 });
+    return new Response(JSON.stringify([asset]), { status: 200, headers });
 }
 
 async function handleFile(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
