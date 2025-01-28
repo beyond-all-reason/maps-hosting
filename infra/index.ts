@@ -85,6 +85,28 @@ const fetcherWorker = new gcp.serviceaccount.Account("fetcher-worker", {
     displayName: "Fetcher Worker",
 });
 
+const githubWorkloadIdentityPool = new gcp.iam.WorkloadIdentityPool("github-actions-workload-pool", {
+    workloadIdentityPoolId: "github-actions",
+    description: "GitHub Actions Pool"
+});
+
+const githubWorkloadIdentityPoolProvider = new gcp.iam.WorkloadIdentityPoolProvider("github-actions-workload-provider", {
+    workloadIdentityPoolId: githubWorkloadIdentityPool.workloadIdentityPoolId,
+    workloadIdentityPoolProviderId: "github",
+    displayName: "GitHub",
+    attributeMapping: {
+        "google.subject": "assertion.sub",
+        "attribute.actor": "assertion.actor",
+        "attribute.aud": "assertion.aud",
+        "attribute.repository": "assertion.repository",
+        "attribute.repository_owner": "assertion.repository_owner",
+    },
+    attributeCondition: `attribute.repository_owner == "beyond-all-reason"`,
+    oidc: {
+        issuerUri: "https://token.actions.githubusercontent.com",
+    },
+});
+
 const uploadBucket = new gcp.storage.Bucket("upload-bucket", {
     lifecycleRules: [{
         action: {
@@ -278,7 +300,10 @@ const cacheRequestsPolicy = new gcp.pubsub.TopicIAMPolicy("cache-requests-policy
     policyData: gcp.organizations.getIAMPolicyOutput({
         bindings: [{
             role: "roles/pubsub.publisher",
-            members: [pulumi.interpolate `serviceAccount:${fetcherWorker.email}`]
+            members: [
+                pulumi.interpolate `serviceAccount:${fetcherWorker.email}`,
+                pulumi.interpolate `principalSet://iam.googleapis.com/${githubWorkloadIdentityPool.name}/attribute.repository/beyond-all-reason/spring`
+            ]
         }]
     }).apply(p => p.policyData),
     topic: cacheRequests.id
@@ -367,9 +392,6 @@ const fetcherWorkerScript = new cloudflare.WorkerScript("fetcher", {
         namespaceId: fetcherAssetsKv.id,
     }],
     plainTextBindings: [{
-        name: "ALLOWED_CATEGORIES",
-        text: "map",
-    },{
         name: "PUBSUB_TOPIC",
         text: cacheRequests.id
     }],

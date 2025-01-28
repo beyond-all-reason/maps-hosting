@@ -15,9 +15,13 @@ export interface SpringFilesAsset {
     springname: string,
 }
 
-export interface SyncRequest {
-    category: string,
-    springname: string,
+export type SyncRequest = {
+    category: 'map'
+    springname: string
+} | {
+    category: 'engine'
+    windows64: { url: string },
+    linux64: { url: string },
 }
 
 // Helpers to easily return proper HTTP errors.
@@ -36,11 +40,11 @@ export const httpNotImplemented = (msg: string = 'Not Implemented') => new HTTPE
 export const httpBadGateway = (msg: string = 'Bad Gateway') => new HTTPError(msg, 502);
 export const httpNotFound = (msg: string = 'Not Found') => new HTTPError(msg, 404);
 
-export async function fetchFromSpringFiles(category: string, springname: string): Promise<SpringFilesAsset> {
+export async function fetchFromSpringFiles(category: string, springname: string, o?: {signal?: AbortSignal}): Promise<SpringFilesAsset> {
     const url = new URL(SPRING_FILES_SEARCH);
     url.searchParams.set('category', category);
     url.searchParams.set('springname', springname);
-    const response = await fetch(url.toString());
+    const response = await fetch(url.toString(), {signal: o?.signal});
     if (!response.ok) {
         throw httpBadGateway(`Fetch from springfiles failed with ${response.status}`);
     }

@@ -9,7 +9,6 @@ export interface Env {
     R2_BUCKET_APAC: R2Bucket;
     PUBSUB_TOPIC: string;
     SERVICE_ACCOUNT_KEY: string;
-    ALLOWED_CATEGORIES: string;
     DEV_MODE: string | undefined;
 }
 
@@ -72,7 +71,6 @@ function getClosestBucket(request: Request, env: Env): [string, R2Bucket] {
 }
 
 async function handleFind(url: URL, env: Env, ctx: ExecutionContext): Promise<Response> {
-    const allowedCategories = new Set(env.ALLOWED_CATEGORIES.split(','));
     for (const [key, value] of url.searchParams) {
         if (key != 'category' && key != 'springname') {
             console.info(`Unknown param: '${key}' = '${value}', ignoring`)
@@ -91,7 +89,7 @@ async function handleFind(url: URL, env: Env, ctx: ExecutionContext): Promise<Re
     const upstreamUrl = new URL('https://springfiles.springrts.com/json.php');
     upstreamUrl.searchParams.set('category', category);
     upstreamUrl.searchParams.set('springname', springname);
-    if (!allowedCategories.has(category)) {
+    if (!['engine_windows64', 'engine_linux64', 'map'].includes(category)) {
         return Response.redirect(upstreamUrl.toString(), 302);
     }
     if (springname.length > 100) {
@@ -108,8 +106,8 @@ async function handleFind(url: URL, env: Env, ctx: ExecutionContext): Promise<Re
     let asset: lib.SpringFilesAsset;
     if (value !== null) {
         asset = JSON.parse(value);
-        asset.mirrors = asset.mirrors.map(p => `${url.origin}/${p}`);
-    } else {
+        asset.mirrors = asset.mirrors.map(p => p.startsWith('http') ? p : `${url.origin}/${p}`);
+    } else if (category === 'map') {
         asset = await lib.fetchFromSpringFiles(category, springname);
         ctx.waitUntil((async () => {
             const message: lib.SyncRequest = {
@@ -123,6 +121,8 @@ async function handleFind(url: URL, env: Env, ctx: ExecutionContext): Promise<Re
                 { "requestType": "SyncRequest" });
             console.info(`Published message ${msgId} for '${springname}'`);
         })());
+    } else {
+        return new Response(JSON.stringify([]), { status: 200 });
     }
     return new Response(JSON.stringify([asset]), { status: 200 });
 }

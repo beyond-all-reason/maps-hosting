@@ -4,11 +4,11 @@ cacher
 Testing
 -------
 
-Create `cacher.env` with env variables set:
+Create `.envrc` with env variables set:
 
 ```
 export CF_ACCOUNT_ID=
-export CF_R2_BUCKET=
+export CF_R2_BUCKETS=
 export CF_R2_ACCESS_KEY_ID=
 export CF_R2_ACCESS_KEY_SECRET=
 export CF_KV_NAMESPACE_ID=
@@ -28,6 +28,12 @@ To test uploading from GCS bucket:
 
 ```
 echo '{"name":"map.sd7","bucket":"gcs-bucket-name"}' | base64 -w 0 | jq -R '{"message": {"attributes": {"eventType": "OBJECT_FINALIZE", "payloadFormat": "JSON_API_V1"}, "data": .}}' | curl -X POST -d @- http://localhost:8080/upload
+```
+
+To test engine sync:
+
+```
+echo '{"category":"engine","windows64":{"url":"https://github.com/beyond-all-reason/spring/releases/download/2025.01.5/spring_bar_.rel2501.2025.01.5_windows-64-minimal-portable.7z"}, "linux64":{"url":"https://github.com/beyond-all-reason/spring/releases/download/2025.01.5/spring_bar_.rel2501.2025.01.5_linux-64-minimal-portable.7z"}}' | base64 -w 0 | jq -R '{"message": {"attributes": {"requestType": "SyncRequest"}, "data": .}}' | curl -X POST -d @- http://localhost:8080/cache
 ```
 
 Publishing
