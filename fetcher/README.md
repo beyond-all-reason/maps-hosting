@@ -8,6 +8,7 @@ Cloudflare Worker that fetches files from R2 buckets and serves them.
 In one shell run:
 
 ```
+rm -rf .wrangler
 wrangler dev
 ```
 

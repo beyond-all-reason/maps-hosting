@@ -44,6 +44,7 @@ GET http://localhost:8787/file/ff01234/alpha1.txt
 
 HTTP 200
 Cache-Control: public, max-age=31536000, immutable
+Content-Disposition: attachment; filename="alpha1.txt"
 [Asserts]
 body == "alpha1 map contents\n"
 
@@ -64,6 +65,13 @@ HTTP 200
 
 [Asserts]
 header "X-Fetcher-Source" != "cache"
+
+
+# Redirect to alpha1 map download via download endpoint
+GET http://localhost:8787/download?category=map&springname=alpha1
+
+HTTP 302
+Location: http://localhost:8787/file/ff01234/alpha1.txt
 
 
 # Falls back to springfiles (this might be flaky test)

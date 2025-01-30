@@ -70,32 +70,31 @@ function getClosestBucket(request: Request, env: Env): [string, R2Bucket] {
     return [bucket.name, bucket.bucket];
 }
 
-async function handleFind(url: URL, env: Env, ctx: ExecutionContext): Promise<Response> {
+const VALID_CATEGORIES = ['engine_windows64', 'engine_linux64', 'map'];
+
+function parseSearchParams(url: URL): {springname: string, category: string} {
     for (const [key, value] of url.searchParams) {
         if (key != 'category' && key != 'springname') {
             console.info(`Unknown param: '${key}' = '${value}', ignoring`)
         }
     }
-
     if (!url.searchParams.has('category')) {
         throw lib.httpBadRequest('Missing category param');
     }
     if (!url.searchParams.has('springname')) {
         throw lib.httpBadRequest('Missing springname param');
     }
-    const category = url.searchParams.get('category')!;
     const springname = url.searchParams.get('springname')!;
-
-    const upstreamUrl = new URL('https://springfiles.springrts.com/json.php');
-    upstreamUrl.searchParams.set('category', category);
-    upstreamUrl.searchParams.set('springname', springname);
-    if (!['engine_windows64', 'engine_linux64', 'map'].includes(category)) {
-        return Response.redirect(upstreamUrl.toString(), 302);
-    }
     if (springname.length > 100) {
         throw lib.httpBadRequest('springname too long');
     }
+    return {
+        springname,
+        category: url.searchParams.get('category')!,
+    }
+}
 
+async function getAsset(url: URL, env: Env, ctx: ExecutionContext, category: string, springname: string): Promise<lib.SpringFilesAsset> {
     const key = lib.getKVKey(category, springname);
     let value = await env.ASSETS_KV.get(key, { cacheTtl: 8 * 60 * 60 });
     // If value is not found, try with shorter cacheTtl as not found keys are also cached.
@@ -104,10 +103,6 @@ async function handleFind(url: URL, env: Env, ctx: ExecutionContext): Promise<Re
     }
 
     let asset: lib.SpringFilesAsset;
-    const headers = new Headers({
-        'content-type': 'application/json; charset=utf-8',
-        'cache-control': 'public, max-age=1800, stale-while-revalidate=1800, stale-if-error=86400'
-    });
     if (value !== null) {
         asset = JSON.parse(value);
         asset.mirrors = asset.mirrors.map(p => p.startsWith('http') ? p : `${url.origin}/${p}`);
@@ -126,8 +121,35 @@ async function handleFind(url: URL, env: Env, ctx: ExecutionContext): Promise<Re
             console.info(`Published message ${msgId} for '${springname}'`);
         })());
     } else {
-        return new Response(JSON.stringify([]), { status: 200, headers });
+        throw lib.httpNotFound('requested object not found');
     }
+    return asset;
+}
+
+async function handleDownload(url: URL, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const { category, springname } = parseSearchParams(url);
+    if (!VALID_CATEGORIES.includes(category)) {
+        throw lib.httpBadRequest('unsupported category for download');
+    }
+    let asset = await getAsset(url, env, ctx, category, springname);
+    return Response.redirect(asset.mirrors[0], 302);
+}
+
+async function handleFind(url: URL, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const { category, springname } = parseSearchParams(url);
+
+    if (!VALID_CATEGORIES.includes(category)) {
+        const upstreamUrl = new URL('https://springfiles.springrts.com/json.php');
+        upstreamUrl.searchParams.set('category', category);
+        upstreamUrl.searchParams.set('springname', springname);
+        return Response.redirect(upstreamUrl.toString(), 302);
+    }
+
+    let asset = await getAsset(url, env, ctx, category, springname);
+    const headers = new Headers({
+        'content-type': 'application/json; charset=utf-8',
+        'cache-control': 'public, max-age=1800, stale-while-revalidate=1800, stale-if-error=86400'
+    });
     return new Response(JSON.stringify([asset]), { status: 200, headers });
 }
 
@@ -159,6 +181,7 @@ async function handleFile(request: Request, env: Env, ctx: ExecutionContext): Pr
     object.writeHttpMetadata(headers);
     headers.set('etag', object.httpEtag);
     headers.set('cache-control', 'public, max-age=31536000, immutable');
+    headers.set('content-disposition', `attachment; filename="${parts[3]}"`);
     const resp = new Response(object.body, { headers });
     if (!disableCache) ctx.waitUntil(cache.put(cacheKey, resp.clone()));
     resp.headers.set('x-fetcher-source', region);
@@ -203,6 +226,8 @@ export default {
         try {
             if (url.pathname === '/find') {
                 return await handleFind(url, env, ctx);
+            } else if (url.pathname === '/download') {
+                return await handleDownload(url, env, ctx);
             } else if (url.pathname.startsWith('/file/')) {
                 return await handleFile(request, env, ctx);
             } else {
