@@ -215,4 +215,4 @@ export default {
             throw e;
         }
     },
-};
+} satisfies ExportedHandler<Env>;

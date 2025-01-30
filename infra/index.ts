@@ -382,7 +382,7 @@ const fetcherScriptContent = gcp.storage.getBucketObjectContentOutput({
     name: workerScriptBucketFile,
 });
 
-const fetcherWorkerScript = new cloudflare.WorkerScript("fetcher", {
+const fetcherWorkerScript = new cloudflare.WorkersScript("fetcher", {
     accountId: config.require("cloudflareAccountId"),
     name: `fetcher-${pulumi.getStack()}`,
     content: <pulumi.Output<string>>fetcherScriptContent.content,
@@ -411,7 +411,7 @@ const fetcherZone = new cloudflare.Zone("fetcher-zone", {
     plan: "free",
 });
 
-const fetcherWorkerDomain = new cloudflare.WorkerDomain("fetcher-domain", {
+const fetcherWorkerDomain = new cloudflare.WorkersDomain("fetcher-domain", {
     accountId: config.require("cloudflareAccountId"),
     hostname: pulumi.interpolate `files-cdn${pulumi.getStack() === "prod" ? "" : "-" + pulumi.getStack()}.${fetcherZone.zone}`,
     zoneId: fetcherZone.id,
