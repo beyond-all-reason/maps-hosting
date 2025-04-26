@@ -302,7 +302,7 @@ const cacheRequestsPolicy = new gcp.pubsub.TopicIAMPolicy("cache-requests-policy
             role: "roles/pubsub.publisher",
             members: [
                 pulumi.interpolate `serviceAccount:${fetcherWorker.email}`,
-                pulumi.interpolate `principalSet://iam.googleapis.com/${githubWorkloadIdentityPool.name}/attribute.repository/beyond-all-reason/spring`
+                pulumi.interpolate `principalSet://iam.googleapis.com/${githubWorkloadIdentityPool.name}/attribute.repository/beyond-all-reason/RecoilEngine`
             ]
         }]
     }).apply(p => p.policyData),
