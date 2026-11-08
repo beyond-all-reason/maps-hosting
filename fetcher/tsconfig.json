@@ -1,32 +1,17 @@
 {
   "compilerOptions": {
-    /* Language and Environment */
-    "target": "es2021",
-    "lib": [
-      "es2021"
-    ],
+    "target": "es2024",
+    "lib": ["es2024"],
     "module": "es2022",
-    "moduleResolution": "node",
-    "types": [
-      "@cloudflare/workers-types"
-    ],
-    "resolveJsonModule": true,
-
-    /* Emit */
+    "moduleResolution": "bundler",
     "noEmit": true,
-
-    /* Interop Constraints */
     "isolatedModules": true,
     "forceConsistentCasingInFileNames": true,
-
-    /* Type Checking */
     "strict": true,
-    "noImplicitAny": true,
-    "noImplicitThis": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
-
-    /* Completeness */
     "skipLibCheck": true
-  }
+  },
+  "exclude": ["test"],
+  "include": ["worker-configuration.d.ts", "src/**/*.ts"]
 }

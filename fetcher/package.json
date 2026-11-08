@@ -2,18 +2,27 @@
   "name": "fetcher",
   "version": "0.0.1",
   "private": true,
+  "type": "module",
   "scripts": {
-    "tsc": "tsc",
+    "dev": "wrangler dev",
     "start": "wrangler dev",
-    "build": "wrangler deploy --dry-run --outdir dist"
+    "build": "wrangler deploy --dry-run --outdir dist",
+    "test": "vitest",
+    "typecheck": "wrangler types --strict-vars=false && tsc && tsc -p test",
+    "cf-typegen": "wrangler types --strict-vars=false"
   },
   "dependencies": {
-    "geolib": "^3.3.4",
-    "jose": "^5.9.6"
+    "geolib": "^4.0.2",
+    "jose": "^6.2.15"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20250129.0",
-    "typescript": "5.7.3",
-    "wrangler": "^3.107.0"
+    "@cloudflare/vitest-plugin": "^1.6.0",
+    "typescript": "7.0.2",
+    "vitest": "^5.1.0",
+    "wrangler": "^4.158.0"
+  },
+  "allowScripts": {
+    "esbuild": false,
+    "workerd": false
   }
 }

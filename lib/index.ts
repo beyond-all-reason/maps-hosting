@@ -44,14 +44,14 @@ export async function fetchFromSpringFiles(category: string, springname: string,
     const url = new URL(SPRING_FILES_SEARCH);
     url.searchParams.set('category', category);
     url.searchParams.set('springname', springname);
-    const response = await fetch(url.toString(), {signal: o?.signal});
+    const response = await fetch(url, {signal: o?.signal});
     if (!response.ok) {
         throw httpBadGateway(`Fetch from springfiles failed with ${response.status}`);
     }
     // We assume that resulting JSON is correct without verification.
     let result: Array<SpringFilesAsset>;
     try {
-        result = await response.json();
+        result = await response.json() as Array<SpringFilesAsset>;
     } catch (e) {
         throw httpBadGateway('Springfiles didn\'t return correct json');
     }

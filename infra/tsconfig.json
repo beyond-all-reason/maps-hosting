@@ -1,32 +1,11 @@
 {
+  // Pulumi type checks and runs index.ts with ts-node on every preview/up.
+  // TypeScript stays on 6.x because Pulumi's ts-node doesn't support TS 7 yet.
+  "extends": "@tsconfig/node26/tsconfig.json",
   "compilerOptions": {
-    "target": "es2020",
-    "module": "commonjs",
-    "moduleResolution": "node",
-    "types": [
-      "@types/node"
-    ],
-
-    /* Emit */
-    "outDir": "bin",
-    "sourceMap": true,
-    "pretty": true,
-
-    /* Features */
-    "experimentalDecorators": true,
-
-    /* Interop Constraints */
-    "isolatedModules": true,
-    "forceConsistentCasingInFileNames": true,
-
-    /* Type Checking */
-    "strict": true,
-    "noImplicitAny": true,
-    "noImplicitThis": true,
+    "noEmit": true,
     "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
+    "noFallthroughCasesInSwitch": true
   },
-  "files": [
-    "index.ts"
-  ]
+  "files": ["index.ts"]
 }

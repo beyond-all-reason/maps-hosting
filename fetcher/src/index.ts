@@ -2,16 +2,6 @@ import * as gcpPubSub from './gcpPubSub';
 import * as lib from '../../lib';
 import * as geolib from 'geolib';
 
-export interface Env {
-    ASSETS_KV: KVNamespace;
-    R2_BUCKET_WEUR: R2Bucket;
-    R2_BUCKET_WNAM: R2Bucket;
-    R2_BUCKET_APAC: R2Bucket;
-    PUBSUB_TOPIC: string;
-    SERVICE_ACCOUNT_KEY: string;
-    DEV_MODE: string | undefined;
-}
-
 function getClosestBucket(request: Request, env: Env): [string, R2Bucket] {
     const buckets = [
         {
@@ -189,33 +179,8 @@ async function handleFile(request: Request, env: Env, ctx: ExecutionContext): Pr
 }
 
 export default {
-    async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    async fetch(request, env, ctx): Promise<Response> {
         const url = new URL(request.url);
-
-        // Until wrangler 3 provides a better way to set and delete object programatically
-        // we need to use this hack to allow for testing.
-        if (env.DEV_MODE === 'true') {
-            if (url.pathname === '/put_object') {
-                const file = url.searchParams.get('name');
-                if (request.body === null || file === null) {
-                    return new Response('Bad Request', { status: 400 });
-                }
-                // The file must be small enough to fit into memory.
-                const contents = await request.blob();
-                await env.R2_BUCKET_WEUR.put(file, contents);
-                await env.R2_BUCKET_WNAM.put(file, contents);
-                await env.R2_BUCKET_APAC.put(file, contents);
-                return new Response('OK', { status: 200 });
-            }
-            if (url.pathname === '/put_kv') {
-                const key = url.searchParams.get('key');
-                if (request.body === null || key === null) {
-                    return new Response('Bad Request', { status: 400 });
-                }
-                await env.ASSETS_KV.put(key, request.body);
-                return new Response('OK', { status: 200 });
-            }
-        }
 
         if (request.method != 'GET') {
             return new Response('Method Not Allowed', {

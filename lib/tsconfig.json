@@ -9,7 +9,7 @@
       "dom"
     ],
     "module": "es2022",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "resolveJsonModule": true,
 
     /* Emit */

@@ -5,7 +5,7 @@ const maps = ['Aberdeen3v3v3', 'Angel Crossing 1.5'];
 
 async function main() {
     for (const map of maps) {
-        const url = new URL('https://bar-springfiles.p2004a.com/find');
+        const url = new URL('https://files-cdn.beyondallreason.dev/find');
         url.searchParams.set('category', 'map');
         url.searchParams.set('springname', map);
         const response = await fetch(url);

@@ -2,7 +2,7 @@ import * as child_process from 'node:child_process';
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs/promises';
 import * as http from 'node:http';
-import * as lib from '../../lib/index.js';
+import * as lib from '../../lib/index.ts';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import * as stream from 'node:stream';
@@ -10,9 +10,8 @@ import { pipeline } from 'node:stream/promises';
 import * as util from 'node:util';
 import { S3Client } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
-import { AbortController as AWSAbortController } from "@smithy/abort-controller";
 import { Storage as GCS } from "@google-cloud/storage";
-import {Ajv, JSONSchemaType} from "ajv";
+import {Ajv, type JSONSchemaType} from "ajv";
 
 const execFile = util.promisify(child_process.execFile);
 
@@ -124,7 +123,7 @@ async function uploadToR2(opts: {
     bucket: string,
     filename: string,
     srcPath: string,
-    abortController: AWSAbortController,
+    abortController: AbortController,
 }) {
     const client = new S3Client({
         region: "auto",
@@ -221,7 +220,7 @@ async function saveToCDN(asset: lib.SpringFilesAsset, path: string, opts?: {cach
     }
 
     if (o.cacheFile) {
-        const abortController = new AWSAbortController();
+        const abortController = new AbortController();
         o.signal?.addEventListener('abort', () => abortController.abort());
         try {
             await Promise.all(process.env.CF_R2_BUCKETS!
@@ -491,8 +490,7 @@ function main() {
     } else {
         console.log(`No PORT env varaible set, listening on default ${port}`);
     }
-    http.createServer(handler)
-        .listen(process.env.PORT ? parseInt(process.env.PORT) : 8080);
+    http.createServer(handler).listen(port);
 }
 
 main();

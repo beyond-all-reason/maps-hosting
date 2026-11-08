@@ -1,32 +1,17 @@
-FROM docker.io/library/node:22-bookworm AS compile-env
-COPY . /src
-WORKDIR /src/cacher
-RUN npm ci
-RUN npm run tsc
-
-FROM docker.io/library/node:22-bookworm AS install-env
-WORKDIR /app
-COPY --from=compile-env /src/cacher/package* ./
-COPY --from=compile-env /src/cacher/dist .
-RUN npm ci --omit=dev
-
-FROM docker.io/library/node:22-bookworm AS pysml
-WORKDIR /app
-RUN apt-get update && apt-get install --no-install-recommends -yq \
-    ca-certificates git 
-RUN git clone https://github.com/p2004a/pysmf.git \
- && cd pysmf \
- && git checkout 6a041953ad173c01b0bbfcf94ce85f6592cfd2eb
-
-FROM docker.io/library/node:22-bookworm-slim
+FROM docker.io/library/node:26-trixie-slim
 RUN apt-get update \
  && apt-get install -yq --no-install-recommends \
- 	python3-minimal python3-pip ca-certificates p7zip-full \
+ 	python3-minimal python3-pip ca-certificates 7zip \
  && rm -rf /var/lib/apt/lists/*
-COPY --from=install-env /app /app
-COPY --from=pysml /app/pysmf/requirements.txt /app/requirements.txt
-COPY --from=pysml /app/pysmf/pysmf.py /app/pysmf.py
-RUN pip install --break-system-packages -r /app/requirements.txt
-WORKDIR /app
-ENV PYSMF_PATH=/app/pysmf.py
-CMD ["node", "--enable-source-maps", "cacher/src/index.js"]
+COPY cacher/pysmf/requirements.txt /app/cacher/pysmf/requirements.txt
+RUN pip install --no-cache-dir --break-system-packages --root-user-action=ignore \
+    -r /app/cacher/pysmf/requirements.txt
+WORKDIR /app/cacher
+COPY cacher/package.json cacher/package-lock.json ./
+RUN npm ci --omit=dev && npm cache clean --force
+COPY cacher/pysmf/pysmf.py pysmf/pysmf.py
+COPY lib/package.json lib/index.ts /app/lib/
+COPY cacher/src src
+ENV PYSMF_PATH=/app/cacher/pysmf/pysmf.py
+USER node
+CMD ["node", "src/index.ts"]

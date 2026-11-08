@@ -1,0 +1,24 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	// The deployed worker is managed by Pulumi (see infra/index.ts) from the bundle
+	// built with `npm run build`. Bindings below are only used for local
+	// development and tests, so the resource names and ids here are placeholders.
+	// Keep compatibility_date in sync with fetcherWorkerScript in infra/index.ts.
+	"name": "fetcher",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-11-04",
+	"r2_buckets": [
+		{ "binding": "R2_BUCKET_WEUR", "bucket_name": "objects-weur" },
+		{ "binding": "R2_BUCKET_WNAM", "bucket_name": "objects-wnam" },
+		{ "binding": "R2_BUCKET_APAC", "bucket_name": "objects-apac" },
+	],
+	"kv_namespaces": [
+		{ "binding": "ASSETS_KV", "id": "00000000000000000000000000000000" },
+	],
+	"vars": {
+		"PUBSUB_TOPIC": "projects/non-existent-project/topics/topic-name",
+	},
+	"secrets": {
+		"required": ["SERVICE_ACCOUNT_KEY"],
+	},
+}

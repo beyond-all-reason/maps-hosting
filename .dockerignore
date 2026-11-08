@@ -1,1 +1,10 @@
-**/node_modules
+# Allowlist: only files needed by cacher/Dockerfile are sent to the build
+# context, so local secrets (.envrc, .dev.vars, ...) never end up there.
+*
+!cacher/package.json
+!cacher/package-lock.json
+!cacher/src/
+!cacher/pysmf/pysmf.py
+!cacher/pysmf/requirements.txt
+!lib/package.json
+!lib/index.ts

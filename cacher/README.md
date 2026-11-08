@@ -16,7 +16,17 @@ export CF_KV_API_TOKEN=
 export PYSMF_PATH=
 ```
 
-and source. Make sure that pysmf works correctly (e.g. don't forget to source venv). Run app with `npm start`.
+and source. `PYSMF_PATH` should point to the vendored `pysmf/pysmf.py`, with its
+dependencies installed, e.g.:
+
+```
+python3 -m venv .venv
+.venv/bin/pip install -r pysmf/requirements.txt
+source .venv/bin/activate
+export PYSMF_PATH="$PWD/pysmf/pysmf.py"
+```
+
+Run app with `npm start`.
 
 To test caching from spring files:
 
@@ -33,7 +43,7 @@ echo '{"name":"map.sd7","bucket":"gcs-bucket-name"}' | base64 -w 0 | jq -R '{"me
 To test engine sync:
 
 ```
-echo '{"category":"engine","windows64":{"url":"https://github.com/beyond-all-reason/spring/releases/download/2025.01.5/spring_bar_.rel2501.2025.01.5_windows-64-minimal-portable.7z"}, "linux64":{"url":"https://github.com/beyond-all-reason/spring/releases/download/2025.01.5/spring_bar_.rel2501.2025.01.5_linux-64-minimal-portable.7z"}}' | base64 -w 0 | jq -R '{"message": {"attributes": {"requestType": "SyncRequest"}, "data": .}}' | curl -X POST -d @- http://localhost:8080/cache
+echo '{"category":"engine","windows64":{"url":"https://github.com/beyond-all-reason/RecoilEngine/releases/download/2025.01.5/spring_bar_.rel2501.2025.01.5_windows-64-minimal-portable.7z"}, "linux64":{"url":"https://github.com/beyond-all-reason/RecoilEngine/releases/download/2025.01.5/spring_bar_.rel2501.2025.01.5_linux-64-minimal-portable.7z"}}' | base64 -w 0 | jq -R '{"message": {"attributes": {"requestType": "SyncRequest"}, "data": .}}' | curl -X POST -d @- http://localhost:8080/cache
 ```
 
 Publishing

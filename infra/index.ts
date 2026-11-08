@@ -33,13 +33,22 @@ if (pulumi.getStack() == "dev") {
     });
 }
 
-const cfPermissionGroups = pulumi.output(cloudflare.getApiTokenPermissionGroups()).permissions;
+const cfKvWritePermissionGroup = cloudflare.getApiTokenPermissionGroupsListOutput({
+    name: "Workers KV Storage Write",
+    scope: "com.cloudflare.api.account",
+}).results.apply(results => {
+    if (results.length !== 1) {
+        throw new Error(`Expected exactly one "Workers KV Storage Write" permission group, got ${results.length}`);
+    }
+    return results[0];
+});
 
-const fetcherAssetsKvApiToken = new cloudflare.ApiToken("fetcher-assets-kv-api-token", {
+const fetcherAssetsKvApiToken = new cloudflare.ApiToken("fetcher-assets-kv-api-token-v6", {
     name: `cacher-${pulumi.getStack()} access`,
     policies: [{
-        permissionGroups: [cfPermissionGroups.apply(p => p['Workers KV Storage Write'])],
-        resources: {[`com.cloudflare.api.account.${config.require("cloudflareAccountId")}`]: "*"}
+        effect: "allow",
+        permissionGroups: [{id: cfKvWritePermissionGroup.id}],
+        resources: JSON.stringify({[`com.cloudflare.api.account.${config.require("cloudflareAccountId")}`]: "*"}),
     }]
 });
 
@@ -370,6 +379,8 @@ const uploadBucketNotification = new gcp.storage.Notification("upload-bucket-not
     eventTypes: ["OBJECT_FINALIZE"],
     payloadFormat: "JSON_API_V1",
     topic: uploadRequests.id,
+    // Matches existing state, without it the provider plans a replacement.
+    customAttributes: {},
 }, {dependsOn: [uploadRequestsPolicy, uploadBucket]});
 
 const fetcherWorkerKey = new gcp.serviceaccount.Key("mykey", {
@@ -384,36 +395,40 @@ const fetcherScriptContent = gcp.storage.getBucketObjectContentOutput({
 
 const fetcherWorkerScript = new cloudflare.WorkersScript("fetcher", {
     accountId: config.require("cloudflareAccountId"),
-    name: `fetcher-${pulumi.getStack()}`,
-    content: <pulumi.Output<string>>fetcherScriptContent.content,
-    module: true,
-    kvNamespaceBindings: [{
+    scriptName: `fetcher-${pulumi.getStack()}`,
+    content: fetcherScriptContent.content,
+    mainModule: "worker.mjs",
+    // Keep in sync with compatibility_date in fetcher/wrangler.jsonc.
+    compatibilityDate: "2026-11-04",
+    bindings: [{
+        type: "kv_namespace",
         name: "ASSETS_KV",
         namespaceId: fetcherAssetsKv.id,
-    }],
-    plainTextBindings: [{
+    }, {
+        type: "plain_text",
         name: "PUBSUB_TOPIC",
-        text: cacheRequests.id
-    }],
-    secretTextBindings: [{
+        text: cacheRequests.id,
+    }, {
+        type: "secret_text",
         name: "SERVICE_ACCOUNT_KEY",
         text: fetcherWorkerKey.privateKey.apply(atob),
-    }],
-    r2BucketBindings: fetcherAssetsBuckets.map(bucket => ({
-        name: bucket.location.apply(region => `R2_BUCKET_${region.toUpperCase()}`),
+    }, ...fetcherAssetsBuckets.map(bucket => ({
+        type: "r2_bucket",
+        name: bucket.location.apply(region => `R2_BUCKET_${region!.toUpperCase()}`),
         bucketName: bucket.name,
-    })),
+    }))],
 });
 
+// The same zone is shared by all stacks (it hosts more than this project), so
+// make sure that it's never deleted by e.g. `pulumi destroy` of the dev stack.
 const fetcherZone = new cloudflare.Zone("fetcher-zone", {
-    accountId: config.require("cloudflareAccountId"),
-    zone: "beyondallreason.dev",
-    plan: "free",
-});
+    account: {id: config.require("cloudflareAccountId")},
+    name: "beyondallreason.dev",
+}, {protect: true});
 
-const fetcherWorkerDomain = new cloudflare.WorkersDomain("fetcher-domain", {
+const fetcherWorkerDomain = new cloudflare.WorkersCustomDomain("fetcher-domain", {
     accountId: config.require("cloudflareAccountId"),
-    hostname: pulumi.interpolate `files-cdn${pulumi.getStack() === "prod" ? "" : "-" + pulumi.getStack()}.${fetcherZone.zone}`,
+    hostname: pulumi.interpolate `files-cdn${pulumi.getStack() === "prod" ? "" : "-" + pulumi.getStack()}.${fetcherZone.name}`,
     zoneId: fetcherZone.id,
-    service: fetcherWorkerScript.name,
+    service: fetcherWorkerScript.scriptName,
 });

@@ -1,14 +1,26 @@
 {
   "name": "springfiles-mirror-infra",
+  "private": true,
   "main": "index.ts",
-  "devDependencies": {
-    "@types/node": "^22.0.0"
+  "engines": {
+    "node": ">=26.0.0"
+  },
+  "scripts": {
+    "typecheck": "tsc"
   },
   "dependencies": {
-    "@pulumi/cloudflare": "^5.49.0",
-    "@pulumi/docker": "^4.6.1",
-    "@pulumi/gcp": "^8.15.0",
-    "@pulumi/pulumi": "^3.147.0",
-    "@pulumi/random": "^4.17.0"
+    "@pulumi/cloudflare": "^6.23.3",
+    "@pulumi/docker": "^5.2.2",
+    "@pulumi/gcp": "^10.2.2",
+    "@pulumi/pulumi": "^3.274.1",
+    "@pulumi/random": "^4.21.6"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@tsconfig/node26": "^26.0.1",
+    "typescript": "^6.0.3"
+  },
+  "allowScripts": {
+    "protobufjs": false
   }
 }
