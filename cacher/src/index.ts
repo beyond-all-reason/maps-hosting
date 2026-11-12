@@ -14,7 +14,6 @@ import { Storage as GCS } from "@google-cloud/storage";
 import {Ajv, type JSONSchemaType} from "ajv";
 
 const execFile = util.promisify(child_process.execFile);
-const springfilesFallback = process.env.SPRINGFILES_FALLBACK === 'true';
 
 class HTTPResponse {
     body: string
@@ -261,7 +260,7 @@ async function downloadFile(url: URL, filePath: string, opts?: {signal?: AbortSi
 }
 
 async function handleMapSyncRequest(req: Extract<lib.SyncRequest, {category: 'map'}>, o?: {signal?: AbortSignal}) {
-    if (!springfilesFallback) {
+    if (process.env.SPRINGFILES_FALLBACK !== 'true') {
         // Acknowledge instead of failing: Pub/Sub would otherwise keep
         // redelivering the request until the message retention expires.
         console.warn(`Springfiles fallback disabled, ignoring sync request for ${req.category}/${req.springname}`);
@@ -497,7 +496,6 @@ function main() {
     } else {
         console.log(`No PORT env varaible set, listening on default ${port}`);
     }
-    console.log(`Springfiles fallback ${springfilesFallback ? 'enabled' : 'disabled'}`);
     http.createServer(handler).listen(port);
 }
 

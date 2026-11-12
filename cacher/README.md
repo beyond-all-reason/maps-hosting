@@ -28,12 +28,8 @@ export PYSMF_PATH="$PWD/pysmf/pysmf.py"
 
 Run app with `npm start`.
 
-Caching maps from springfiles (`/cache` with a `map` sync request) is disabled
-unless `SPRINGFILES_FALLBACK=true` is set; when disabled such requests are
-acknowledged and ignored. Only maps uploaded via the GCS upload bucket end up in
-the CDN.
-
-To test caching from spring files (requires `SPRINGFILES_FALLBACK=true`):
+To test caching from spring files (requires `SPRINGFILES_FALLBACK=true`, otherwise
+map sync requests are ignored):
 
 ```
 echo '{"category":"map","springname":"Angel Crossing 1.4"}' | base64 -w 0 | jq -R '{"message": {"attributes": {"requestType": "SyncRequest"}, "data": .}}' | curl -X POST -d @- http://localhost:8080/cache

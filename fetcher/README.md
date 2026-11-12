@@ -3,13 +3,9 @@ fetcher
 
 Cloudflare Worker that fetches files from R2 buckets and serves them.
 
-Fallback to springfiles is controlled by the `SPRINGFILES_FALLBACK` variable
-(Pulumi config `springfilesFallback`, default `false`). When disabled, only
-assets present in the CDN (maps uploaded via the GCS upload bucket, engines)
-are served: maps missing in KV return 404 and `/find` with an unsupported
-category returns 400. When enabled, missing maps are looked up in springfiles
-and a caching request is published to Pub/Sub, and unsupported categories are
-redirected to springfiles.
+Unless `SPRINGFILES_FALLBACK` is `true`, maps missing in KV return 404 instead
+of being fetched from springfiles, and `/find` with an unsupported category
+returns 400 instead of redirecting there.
 
 The deployed worker and its bindings are managed by Pulumi in `../infra`;
 `wrangler.jsonc` only configures local development and tests.

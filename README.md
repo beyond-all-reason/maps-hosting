@@ -7,6 +7,5 @@ compatible with [pr-downloader](https://github.com/beyond-all-reason/pr-download
 https://springfiles.springrts.com/json.php endpoint) using Cloudflare Workers
 and R2.
 
-Maps are only served if they were uploaded to the GCS upload bucket. Fallback to
-springfiles for missing maps can be enabled with the `springfilesFallback`
-Pulumi config, but is disabled by default.
+Only maps uploaded via the GCS upload bucket are served. Fallback to springfiles
+(Pulumi config `springfilesFallback`) is disabled by default.
