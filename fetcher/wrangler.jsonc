@@ -17,6 +17,8 @@
 	],
 	"vars": {
 		"PUBSUB_TOPIC": "projects/non-existent-project/topics/topic-name",
+		// Deployed value comes from the springfilesFallback Pulumi config.
+		"SPRINGFILES_FALLBACK": "false",
 	},
 	"secrets": {
 		"required": ["SERVICE_ACCOUNT_KEY"],

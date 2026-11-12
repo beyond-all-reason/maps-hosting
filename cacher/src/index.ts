@@ -260,6 +260,12 @@ async function downloadFile(url: URL, filePath: string, opts?: {signal?: AbortSi
 }
 
 async function handleMapSyncRequest(req: Extract<lib.SyncRequest, {category: 'map'}>, o?: {signal?: AbortSignal}) {
+    if (process.env.SPRINGFILES_FALLBACK !== 'true') {
+        // Acknowledge instead of failing: Pub/Sub would otherwise keep
+        // redelivering the request until the message retention expires.
+        console.warn(`Springfiles fallback disabled, ignoring sync request for ${req.category}/${req.springname}`);
+        return;
+    }
     console.info(`fetching ${req.category}/${req.springname}`);
     const asset = await lib.fetchFromSpringFiles(req.category, req.springname, {signal: o?.signal});
 

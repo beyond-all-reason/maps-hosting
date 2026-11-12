@@ -3,6 +3,10 @@ fetcher
 
 Cloudflare Worker that fetches files from R2 buckets and serves them.
 
+Unless `SPRINGFILES_FALLBACK` is `true`, maps missing in KV return 404 instead
+of being fetched from springfiles, and `/find` with an unsupported category
+returns 400 instead of redirecting there.
+
 The deployed worker and its bindings are managed by Pulumi in `../infra`;
 `wrangler.jsonc` only configures local development and tests.
 

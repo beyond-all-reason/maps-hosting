@@ -76,26 +76,41 @@ describe("/find", () => {
         expect((await get(`/find?category=map&springname=${"asd".repeat(40)}`)).status).toBe(400);
     });
 
-    it("redirects unrecognized category to springfiles", async () => {
+    it("rejects unrecognized category without redirecting to springfiles", async () => {
         const res = await get("/find?category=bad&springname=map1");
+        expect(res.status).toBe(400);
+        expect(res.headers.get("location")).toBeNull();
+    });
+
+    it("returns 404 for map missing in KV without asking springfiles or requesting caching", async () => {
+        expect((await get("/find?category=map&springname=map1")).status).toBe(404);
+        expect(fetchedUrls).toEqual([]);
+    });
+});
+
+describe("/find with springfiles fallback enabled", () => {
+    const fallbackEnv = (extra?: Partial<Env>): Env => ({ ...env, SPRINGFILES_FALLBACK: "true", ...extra });
+
+    it("redirects unrecognized category to springfiles", async () => {
+        const res = await get("/find?category=bad&springname=map1", {}, fallbackEnv());
         expect(res.status).toBe(302);
         expect(res.headers.get("location")).toBe("https://springfiles.springrts.com/json.php?category=bad&springname=map1");
     });
 
     it("returns 404 for engine missing in KV without asking springfiles", async () => {
-        expect((await get("/find?category=engine_linux64&springname=e1")).status).toBe(404);
+        expect((await get("/find?category=engine_linux64&springname=e1", {}, fallbackEnv())).status).toBe(404);
         expect(fetchedUrls).toEqual([]);
     });
 
     it("returns 404 when map is not in springfiles either", async () => {
         fetchHandlers.set("https://springfiles.springrts.com/", () => Response.json([]));
-        expect((await get("/find?category=map&springname=map1")).status).toBe(404);
+        expect((await get("/find?category=map&springname=map1", {}, fallbackEnv())).status).toBe(404);
         expect(fetchedUrls).toEqual(["https://springfiles.springrts.com/json.php?category=map&springname=map1"]);
     });
 
     it("returns 502 when springfiles fails", async () => {
         fetchHandlers.set("https://springfiles.springrts.com/", () => new Response("oops", { status: 500 }));
-        expect((await get("/find?category=map&springname=map1")).status).toBe(502);
+        expect((await get("/find?category=map&springname=map1", {}, fallbackEnv())).status).toBe(502);
     });
 
     it("falls back to springfiles and requests caching via Pub/Sub", async () => {
@@ -131,7 +146,7 @@ describe("/find", () => {
         });
 
         const res = await get(`/find?category=map&springname=${encodeURIComponent(springname)}`, {},
-            { ...env, SERVICE_ACCOUNT_KEY: JSON.stringify(serviceAccountKey) });
+            fallbackEnv({ SERVICE_ACCOUNT_KEY: JSON.stringify(serviceAccountKey) }));
 
         expect(res.status).toBe(200);
         const body = await res.json<lib.SpringFilesAsset[]>();
@@ -155,6 +170,11 @@ describe("/download", () => {
 
     it("rejects unrecognized category", async () => {
         expect((await get("/download?category=bad&springname=map1")).status).toBe(400);
+    });
+
+    it("returns 404 for map missing in KV without asking springfiles", async () => {
+        expect((await get("/download?category=map&springname=map1")).status).toBe(404);
+        expect(fetchedUrls).toEqual([]);
     });
 });
 

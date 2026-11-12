@@ -6,4 +6,5 @@ config:
   springfiles-mirror:cfR2AccessKeySecret:
     secure: AAABAMrq4aeLKcyFuo9uPGOUPb+nMzozfnAjndXNJM/zlOtap57YYRA5L56pWMCrPOwAcIM4hlov+NpGGO1TJPghG7xIp2D0n3ql1JJqKovcu/56Gm435N+vICJhwSCf
   springfiles-mirror:region: europe-west1
+  springfiles-mirror:springfilesFallback: "false"
   springfiles-mirror:cloudflareAccountId: 5e015123d861c65819b733acb27db18e
