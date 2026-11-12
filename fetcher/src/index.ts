@@ -96,7 +96,7 @@ async function getAsset(url: URL, env: Env, ctx: ExecutionContext, category: str
     if (value !== null) {
         asset = JSON.parse(value);
         asset.mirrors = asset.mirrors.map(p => p.startsWith('http') ? p : `${url.origin}/${p}`);
-    } else if (category === 'map') {
+    } else if (category === 'map' && lib.isSpringfilesFallbackEnabled(env.SPRINGFILES_FALLBACK)) {
         asset = await lib.fetchFromSpringFiles(category, springname);
         ctx.waitUntil((async () => {
             const message: lib.SyncRequest = {
@@ -129,6 +129,9 @@ async function handleFind(url: URL, env: Env, ctx: ExecutionContext): Promise<Re
     const { category, springname } = parseSearchParams(url);
 
     if (!VALID_CATEGORIES.includes(category)) {
+        if (!lib.isSpringfilesFallbackEnabled(env.SPRINGFILES_FALLBACK)) {
+            throw lib.httpBadRequest('unsupported category');
+        }
         const upstreamUrl = new URL('https://springfiles.springrts.com/json.php');
         upstreamUrl.searchParams.set('category', category);
         upstreamUrl.searchParams.set('springname', springname);

@@ -260,6 +260,12 @@ async function downloadFile(url: URL, filePath: string, opts?: {signal?: AbortSi
 }
 
 async function handleMapSyncRequest(req: Extract<lib.SyncRequest, {category: 'map'}>, o?: {signal?: AbortSignal}) {
+    if (!lib.isSpringfilesFallbackEnabled(process.env.SPRINGFILES_FALLBACK)) {
+        // Acknowledge instead of failing: Pub/Sub would otherwise keep
+        // redelivering the request until the message retention expires.
+        console.warn(`Springfiles fallback disabled, ignoring sync request for ${req.category}/${req.springname}`);
+        return;
+    }
     console.info(`fetching ${req.category}/${req.springname}`);
     const asset = await lib.fetchFromSpringFiles(req.category, req.springname, {signal: o?.signal});
 
@@ -490,6 +496,7 @@ function main() {
     } else {
         console.log(`No PORT env varaible set, listening on default ${port}`);
     }
+    console.log(`Springfiles fallback ${lib.isSpringfilesFallbackEnabled(process.env.SPRINGFILES_FALLBACK) ? 'enabled' : 'disabled'}`);
     http.createServer(handler).listen(port);
 }
 

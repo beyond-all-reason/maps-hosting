@@ -6,6 +6,10 @@ import * as random from "@pulumi/random";
 
 const config = new pulumi.Config();
 const region = config.require("region");
+// Whether the fetcher and cacher fall back to springfiles for maps missing in
+// the CDN. Off by default: only maps uploaded via the GCS upload bucket are
+// served.
+const springfilesFallback = config.getBoolean("springfilesFallback") ?? false;
 
 /*
 Cloudflate API Token needed for this config requires following Edit permissions:
@@ -267,6 +271,9 @@ const cacherService = new gcp.cloudrun.Service("cacher-service", {
                         },
                     },
                 },{
+                    name: "SPRINGFILES_FALLBACK",
+                    value: String(springfilesFallback),
+                },{
                     name: "CF_R2_BUCKETS",
                     value: pulumi
                         .all(fetcherAssetsBuckets.map(bucket => bucket.name))
@@ -408,6 +415,10 @@ const fetcherWorkerScript = new cloudflare.WorkersScript("fetcher", {
         type: "plain_text",
         name: "PUBSUB_TOPIC",
         text: cacheRequests.id,
+    }, {
+        type: "plain_text",
+        name: "SPRINGFILES_FALLBACK",
+        text: String(springfilesFallback),
     }, {
         type: "secret_text",
         name: "SERVICE_ACCOUNT_KEY",
