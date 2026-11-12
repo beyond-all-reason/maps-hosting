@@ -14,7 +14,7 @@ import { Storage as GCS } from "@google-cloud/storage";
 import {Ajv, type JSONSchemaType} from "ajv";
 
 const execFile = util.promisify(child_process.execFile);
-const springfilesFallback = lib.isSpringfilesFallbackEnabled(process.env.SPRINGFILES_FALLBACK);
+const springfilesFallback = process.env.SPRINGFILES_FALLBACK === 'true';
 
 class HTTPResponse {
     body: string

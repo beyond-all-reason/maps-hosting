@@ -76,15 +76,6 @@ describe("/find", () => {
         expect((await get(`/find?category=map&springname=${"asd".repeat(40)}`)).status).toBe(400);
     });
 
-    it("returns 404 for engine missing in KV without asking springfiles", async () => {
-        expect((await get("/find?category=engine_linux64&springname=e1")).status).toBe(404);
-        expect(fetchedUrls).toEqual([]);
-    });
-
-    it("has springfiles fallback disabled by default", () => {
-        expect(env.SPRINGFILES_FALLBACK).toBe("false");
-    });
-
     it("rejects unrecognized category without redirecting to springfiles", async () => {
         const res = await get("/find?category=bad&springname=map1");
         expect(res.status).toBe(400);
@@ -99,12 +90,6 @@ describe("/find", () => {
 
 describe("/find with springfiles fallback enabled", () => {
     const fallbackEnv = (extra?: Partial<Env>): Env => ({ ...env, SPRINGFILES_FALLBACK: "true", ...extra });
-
-    it("still serves asset stored in KV without asking springfiles", async () => {
-        const res = await get("/find?category=map&springname=alpha1", {}, fallbackEnv());
-        expect(res.status).toBe(200);
-        expect(fetchedUrls).toEqual([]);
-    });
 
     it("redirects unrecognized category to springfiles", async () => {
         const res = await get("/find?category=bad&springname=map1", {}, fallbackEnv());

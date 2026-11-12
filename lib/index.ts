@@ -66,13 +66,6 @@ export async function fetchFromSpringFiles(category: string, springname: string,
     return result[0];
 }
 
-// Whether falling back to springfiles for assets missing in the CDN is enabled.
-// Disabled unless explicitly set to "true": by default only maps uploaded to
-// the CDN via the GCS upload bucket are served.
-export function isSpringfilesFallbackEnabled(value: string | undefined): boolean {
-    return value?.trim().toLowerCase() === 'true';
-}
-
 export function getKVKey(category: string, springname: string) {
     return `from_name/${category}/${springname}`;
 }
