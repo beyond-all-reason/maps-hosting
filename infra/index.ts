@@ -6,6 +6,9 @@ import * as random from "@pulumi/random";
 
 const config = new pulumi.Config();
 const region = config.require("region");
+// Whether the fetcher and cacher fall back to springfiles for maps missing in
+// the CDN.
+const springfilesFallback = config.getBoolean("springfilesFallback") ?? false;
 
 /*
 Cloudflate API Token needed for this config requires following Edit permissions:
@@ -153,7 +156,7 @@ const workerScriptsBucket = new gcp.storage.Bucket("worker-scripts-bucket", {
 
 const workerScriptBucketFile = "fetcher.js";
 
-export const workerScriptUploadTarget = pulumi.interpolate `${workerScriptsBucket.url}/${workerScriptBucketFile}`; 
+export const workerScriptUploadTarget = pulumi.interpolate `${workerScriptsBucket.url}/${workerScriptBucketFile}`;
 
 const mainImagesRepo = new gcp.artifactregistry.Repository("main-images-repo", {
     format: "docker",
@@ -266,6 +269,9 @@ const cacherService = new gcp.cloudrun.Service("cacher-service", {
                             name: cfR2AccessKeySecret.secretId,
                         },
                     },
+                },{
+                    name: "SPRINGFILES_FALLBACK",
+                    value: String(springfilesFallback),
                 },{
                     name: "CF_R2_BUCKETS",
                     value: pulumi
@@ -408,6 +414,10 @@ const fetcherWorkerScript = new cloudflare.WorkersScript("fetcher", {
         type: "plain_text",
         name: "PUBSUB_TOPIC",
         text: cacheRequests.id,
+    }, {
+        type: "plain_text",
+        name: "SPRINGFILES_FALLBACK",
+        text: String(springfilesFallback),
     }, {
         type: "secret_text",
         name: "SERVICE_ACCOUNT_KEY",

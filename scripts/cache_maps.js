@@ -1,6 +1,7 @@
 // A small scripts to trigger caching of maps, paste maps e.g. from 
 // https://github.com/beyond-all-reason/BYAR-Chobby/blob/master/LuaMenu/configs/gameConfig/byar/mapDetails.lua
 // to the list below and run it, to trigger a read and a cache.
+// Requires the springfilesFallback Pulumi config to be enabled.
 const maps = ['Aberdeen3v3v3', 'Angel Crossing 1.5'];
 
 async function main() {

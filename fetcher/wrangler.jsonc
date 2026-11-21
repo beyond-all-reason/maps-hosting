@@ -17,6 +17,7 @@
 	],
 	"vars": {
 		"PUBSUB_TOPIC": "projects/non-existent-project/topics/topic-name",
+		"SPRINGFILES_FALLBACK": "boolean_value",
 	},
 	"secrets": {
 		"required": ["SERVICE_ACCOUNT_KEY"],
