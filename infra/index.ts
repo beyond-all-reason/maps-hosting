@@ -7,8 +7,7 @@ import * as random from "@pulumi/random";
 const config = new pulumi.Config();
 const region = config.require("region");
 // Whether the fetcher and cacher fall back to springfiles for maps missing in
-// the CDN. Off by default: only maps uploaded via the GCS upload bucket are
-// served.
+// the CDN.
 const springfilesFallback = config.getBoolean("springfilesFallback") ?? false;
 
 /*
@@ -157,7 +156,7 @@ const workerScriptsBucket = new gcp.storage.Bucket("worker-scripts-bucket", {
 
 const workerScriptBucketFile = "fetcher.js";
 
-export const workerScriptUploadTarget = pulumi.interpolate `${workerScriptsBucket.url}/${workerScriptBucketFile}`; 
+export const workerScriptUploadTarget = pulumi.interpolate `${workerScriptsBucket.url}/${workerScriptBucketFile}`;
 
 const mainImagesRepo = new gcp.artifactregistry.Repository("main-images-repo", {
     format: "docker",

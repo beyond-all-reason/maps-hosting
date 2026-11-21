@@ -6,6 +6,3 @@ compatible with [pr-downloader](https://github.com/beyond-all-reason/pr-download
 (simulating required part of functionality of
 https://springfiles.springrts.com/json.php endpoint) using Cloudflare Workers
 and R2.
-
-Only maps uploaded via the GCS upload bucket are served. Fallback to springfiles
-(Pulumi config `springfilesFallback`) is disabled by default.
