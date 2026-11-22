@@ -298,9 +298,38 @@ function getNormalizedFileName(springname: string, mapPath: string): string {
     return `${name}${ext}`.substring(0, 255);
 }
 
-async function getSpringName(mapPath: string, opts?: {signal?: AbortSignal}): Promise<string> {
-    const { stdout } = await execFile(process.env.PYSMF_PATH!, [mapPath], { timeout: 60 * 1000, signal: opts?.signal });
-    return JSON.parse(stdout)['springname'];
+async function getSpringName(mapPath: string, opts?: {signal?: AbortSignal}): Promise<string | null> {
+    let stdout: string;
+    try {
+        ({ stdout } = await execFile(process.env.PYSMF_PATH!, [mapPath], {
+            env: { PATH: process.env.PATH },
+            timeout: 60 * 1000,
+            killSignal: 'SIGKILL',
+            maxBuffer: 64 * 1024,
+            signal: opts?.signal,
+        }));
+    } catch (e) {
+        if (opts?.signal?.aborted) {
+            throw e;
+        }
+        const err = e as child_process.ExecFileException & { stderr?: string };
+        console.error(`pysmf failed for ${mapPath}: code=${err.code} signal=${err.signal} stderr=${JSON.stringify((err.stderr ?? '').trim().slice(0, 512))}`);
+        return null;
+    }
+
+    let springname: unknown;
+    try {
+        springname = (JSON.parse(stdout) as { springname?: unknown })?.springname;
+    } catch {
+        console.error(`pysmf returned invalid JSON for ${mapPath}: ${JSON.stringify(stdout.slice(0, 512))}`);
+        return null;
+    }
+
+    if (typeof springname !== 'string' || !/^[\x20-\x7e]{1,100}$/.test(springname)) {
+        console.error(`pysmf returned invalid springname for ${mapPath}: ${(JSON.stringify(springname) ?? String(springname)).slice(0, 512)}`);
+        return null;
+    }
+    return springname;
 }
 
 async function extract7zArchive(archive: string, dest: string, opts?: {signal?: AbortSignal}): Promise<void> {
@@ -373,13 +402,21 @@ function handleSyncRequest(req: lib.SyncRequest, o?: {signal?: AbortSignal}): Pr
 
 async function handleUploadRequest(obj: GCSObjectResource, o?: {signal?: AbortSignal}) {
     console.log(`Event: ${obj.name} got uploaded to ${obj.bucket} bucket`);
+    const ext = path.extname(path.basename(obj.name)).toLowerCase();
+    if (ext !== '.sd7' && ext !== '.sdz') {
+        console.warn(`Ignoring upload ${obj.name}: unsupported extension '${ext}'`);
+        return;
+    }
     const storage = new GCS();
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'map-'));
-    const mapPath = path.join(tmpDir, obj.name);
+    const mapPath = path.join(tmpDir, `map${ext}`);
     try {
         // TODO: no signal for download
         await storage.bucket(obj.bucket).file(obj.name).download({ destination: mapPath });
         const springname = await getSpringName(mapPath, {signal: o?.signal});
+        if (springname === null) {
+            return;
+        }
         const asset: lib.SpringFilesAsset = {
             springname,
             category: "map",
@@ -452,11 +489,9 @@ function handler(req: http.IncomingMessage, res: http.ServerResponse) {
                 response.writeResponse(res);
                 done = true;
             }).catch(e => {
-                if (!(e instanceof lib.HTTPError)) {
-                    e = lib.httpInternalServerError();
-                }
                 console.error(e);
-                const response = new HTTPResponse(e.message, e.status);
+                const httpError = e instanceof lib.HTTPError ? e : lib.httpInternalServerError();
+                const response = new HTTPResponse(httpError.message, httpError.status);
                 response.writeResponse(res);
                 done = true;
             });
