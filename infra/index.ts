@@ -242,7 +242,9 @@ const cacherService = new gcp.cloudrun.Service("cacher-service", {
             },
         },
         spec: {
-            containerConcurrency: 2,
+            // One request per instance: isolates /tmp between uploads and leaves
+            // the full 1 GiB container budget for a single map download + pysmf run.
+            containerConcurrency: 1,
             containers: [{
                 envs: [{
                     name: "CF_ACCOUNT_ID",

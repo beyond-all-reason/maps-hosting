@@ -5,6 +5,8 @@
 !cacher/package-lock.json
 !cacher/src/
 !cacher/pysmf/pysmf.py
-!cacher/pysmf/requirements.txt
+!cacher/pysmf/test_pysmf.py
+!cacher/pysmf/pyproject.toml
+!cacher/pysmf/uv.lock
 !lib/package.json
 !lib/index.ts

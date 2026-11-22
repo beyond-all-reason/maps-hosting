@@ -20,9 +20,9 @@ and source. `PYSMF_PATH` should point to the vendored `pysmf/pysmf.py`, with its
 dependencies installed, e.g.:
 
 ```
-python3 -m venv .venv
-.venv/bin/pip install -r pysmf/requirements.txt
-source .venv/bin/activate
+uv venv --python /usr/bin/python3 --system-site-packages pysmf/.venv
+uv sync --project pysmf --locked --no-install-project --no-dev
+source pysmf/.venv/bin/activate
 export PYSMF_PATH="$PWD/pysmf/pysmf.py"
 ```
 
